@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/nats-io/nats.go"
 	"strings"
+	"time"
 
 	"fmt"
 	"os"
@@ -138,7 +140,7 @@ func createConsumer(js nats.JetStreamContext, stream string, durableName string,
 	}
 }
 
-func createConsumerProps(subject string) (string, string, string) {
+func getDurableName(subject string) string {
 	parts := strings.Split(subject, ".")
 	if len(parts) == 0 {
 		panic("Subject is empty")
@@ -147,7 +149,11 @@ func createConsumerProps(subject string) (string, string, string) {
 	for _, part := range parts {
 		upperCaseParts = append(upperCaseParts, strings.ToUpper(part))
 	}
-	durableName := strings.Join(upperCaseParts, "_")
+	return strings.Join(upperCaseParts, "_")
+}
+
+func createConsumerProps(subject string) (string, string, string) {
+	durableName := getDurableName(subject)
 	return durableName, subject, subject
 }
 
@@ -166,6 +172,107 @@ func (c *Context) verifyConsumers() {
 	}
 }
 
+/*
+const getOptsBuilderConfigured = (subj: Subjects): ConsumerOptsBuilder => {
+  const opts = consumerOpts();
+  opts.queue(subj);
+  opts.manualAck();
+  opts.bind(extractStreamName(subj), getDurableName(subj));
+  return opts;
+};
+
+export const subscribe = async (subj: Subjects, cb: (m: JsMsg) => Promise<void>) => {
+  if (!js) {
+    throw new Error('Jetstream is not defined');
+  }
+  let sub: JetStreamSubscription;
+  try {
+    sub = await js.subscribe(subj, getOptsBuilderConfigured(subj));
+  } catch (e) {
+    log(`Error subscribing to ${subj}`, e);
+    throw e;
+  }
+  log(`[${subj}] subscription opened`);
+  for await (const m of sub) {
+    log(`[${m.seq}]: [${sub.getProcessed()}]: ${sc.decode(m.data)}`);
+    // igual no puedo esperar nada
+    void cb(m);
+  }
+  log(`[${subj}] subscription closed`);
+};
+
+*/
+
+/*
+  const opts = consumerOpts();
+  opts.queue(subj);
+  opts.manualAck();
+  opts.bind(extractStreamName(subj), getDurableName(subj));
+  return opts;
+*/
+func extractStreamName(subject string) string {
+	parts := strings.Split(subject, ".")
+	if len(parts) == 0 {
+		panic("Subject is empty")
+	}
+	stream := parts[0]
+	return stream
+}
+
+func subscribe(js nats.JetStreamContext, subject string, cb nats.MsgHandler) {
+	sub, err := js.QueueSubscribeSync(subject, subject,
+		nats.Bind(extractStreamName(subject), getDurableName(subject)),
+		nats.ManualAck(),
+	)
+	if err != nil {
+		fmt.Println("Error subscribing to subject.", err)
+		panic(err)
+	}
+	fmt.Println("Subscribed to subject:", subject)
+	for {
+		msg, err := sub.NextMsg(5 * time.Second)
+		if err != nil {
+			if err == nats.ErrTimeout {
+				//fmt.Println("Timeout waiting for message.")
+				continue
+			}
+			fmt.Println("Error getting next message.", err)
+			panic(err)
+		}
+		//   log(`[${m.seq}]: [${sub.getProcessed()}]: ${sc.decode(m.data)}`);
+		fmt.Println("Message received:", msg.Subject)
+		cb(msg)
+	}
+}
+
+/*
+{
+  "tickets.created": {
+    "id": 44417,
+    "title": "New ticket",
+    "price": 17
+  }
+}
+*/
+
+type TicketCreatedMessage struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	Price int    `json:"price"`
+}
+
+type Message struct {
+	TicketsCreated TicketCreatedMessage `json:"tickets.created"`
+}
+
+//type Message struct {
+//	TicketsCreated struct {
+//		ID    int    `json:"id"`
+//		Title string `json:"title"`
+//		Price int    `json:"price"`
+//	} `json:"tickets.created"`
+//}
+
 func main() {
 	ctx := Context{}
 	ctx.AddStreams()
@@ -173,10 +280,23 @@ func main() {
 	ctx.verifyStreams()
 	ctx.verifyConsumers()
 
+	// subscribe to TicketCreated
+	subscribe(ctx.js, TicketCreated, func(m *nats.Msg) {
+		var ticketCreated Message
+		err := json.Unmarshal(m.Data, &ticketCreated)
+		if err != nil {
+			fmt.Println("Error unmarshalling message.", err)
+			panic(err)
+		}
+		fmt.Println("TicketCreated received:", string(m.Data), ticketCreated)
+		m.Ack()
+	})
+
 	defer func(nc *nats.Conn) {
 		err := nc.Drain()
 		if err != nil {
 			fmt.Println("Error draining.", err)
 		}
+		fmt.Println("Connection drained.")
 	}(ctx.nc)
 }

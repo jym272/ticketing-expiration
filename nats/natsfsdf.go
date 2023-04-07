@@ -1,4 +1,11 @@
-
+//package main
+//
+//import (
+//	"fmt"
+//	"github.com/nats-io/nats.go"
+//	"sync"
+//	"time"
+//)
 //
 //func main() {
 //
