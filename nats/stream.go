@@ -2,8 +2,9 @@ package nats
 
 import (
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"strings"
+
+	"github.com/nats-io/nats.go"
 )
 
 type Stream struct {

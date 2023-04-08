@@ -2,11 +2,12 @@ package nats
 
 import (
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"os"
 	"sync"
 	"workspace/nats/jetstream"
 	"workspace/nats/utils"
+
+	"github.com/nats-io/nats.go"
 )
 
 const (
@@ -46,13 +47,15 @@ func (c *Context) AddStreams() {
 	c.streams = []Stream{ticketStream, ordersStream}
 }
 
+const MaxReconnectAttempts = 5
+
 func (c *Context) ConnectToNats() {
 	url := os.Getenv("NATS_URL")
 	if url == "" {
 		url = nats.DefaultURL
 	}
 
-	nc, err := nats.Connect(url)
+	nc, err := nats.Connect(url, nats.MaxReconnects(MaxReconnectAttempts))
 	if err != nil {
 		fmt.Println("Error connecting to NATS.", err)
 		panic(err)

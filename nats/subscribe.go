@@ -2,9 +2,10 @@ package nats
 
 import (
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"time"
 	"workspace/nats/utils"
+
+	"github.com/nats-io/nats.go"
 )
 
 const TIMEOUT = 5 * time.Second
@@ -24,14 +25,14 @@ func Subscribe(subject string, cb nats.MsgHandler) {
 	fmt.Println("Subscribed to subject:", subject)
 
 	for {
-		// TODO: aca tengo que refactorizar, quizas no tenega que monitorrear
 		msg, err := sub.NextMsg(TIMEOUT)
 		if err != nil {
 			if err == nats.ErrTimeout {
 				fmt.Println("Timeout waiting for message.")
 				continue
 			}
-
+			// Because of MaxReconnectAttempts, probably nats: connection closed
+			// is panic-worthy. -> this goroutine will die and the process will exit.
 			fmt.Println("Error getting next message.", err)
 			panic(err)
 		}
