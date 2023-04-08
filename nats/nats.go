@@ -19,8 +19,8 @@ const (
 )
 
 type OrdersCreated struct {
-	ID        int    `json:"id"`
 	ExpiresAt string `json:"expiresAt"`
+	ID        int    `json:"id"`
 }
 
 type Context struct {
@@ -36,6 +36,7 @@ func GetInstance() *Context {
 	once.Do(func() {
 		instance = &Context{}
 	})
+
 	return instance
 }
 
@@ -59,6 +60,7 @@ func (c *Context) ConnectToNats() {
 
 	c.Nc = nc
 	c.Js, err = nc.JetStream()
+
 	if err != nil {
 		fmt.Println("Error creating JetStream context.", err)
 		panic(err)

@@ -15,6 +15,7 @@ func (s Stream) CreateStream(stream string, subjects []string) Stream {
 	validateStream(stream, subjects)
 	s.name = stream
 	s.subjects = subjects
+
 	return s
 }
 
@@ -29,7 +30,6 @@ func createStream(js nats.JetStreamContext, stream string) {
 		fmt.Println("Error creating stream.", err)
 		panic(err)
 	}
-
 }
 
 func findStream(js nats.JetStreamContext, stream string) bool {
@@ -38,6 +38,7 @@ func findStream(js nats.JetStreamContext, stream string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -45,13 +46,16 @@ func validateStream(stream string, subjects []string) {
 	if stream == "" {
 		panic("stream name cannot be empty")
 	}
+
 	if len(subjects) == 0 {
 		panic("subjects cannot be empty in stream: " + stream)
 	}
+
 	for _, subject := range subjects {
 		if subject == "" {
 			panic("subject cannot be empty in stream: " + stream)
 		}
+
 		if !strings.HasPrefix(subject, stream+".") {
 			panic("subject: " + subject + " does not start with stream: " + stream + ".")
 		}

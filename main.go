@@ -10,8 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	async "workspace/async1"
 	"workspace/listeners"
+
 	nt "workspace/nats"
 )
 
@@ -34,9 +34,11 @@ func main() {
 			log.Fatalf("Error draining: %v", err)
 		}
 		fmt.Println("Connection drained.")
+		nc.Close()
+
 	}(ctx.Nc)
 
-	go async.StartServer()
+	//go async.StartServer()
 	go nt.Subscribe(nt.OrderCreated, listeners.OrderCreated)
 
 	//mux := http.NewServeMux()
@@ -100,16 +102,18 @@ func main() {
 	}
 
 	e.Logger.Fatal(e.Start(":" + httpPort))
-
 }
 
 func signalListener(signals chan os.Signal, nc *nats.Conn) {
 	<-signals
 	fmt.Println("Received signal.")
 	err := nc.Drain()
+
 	if err != nil {
 		fmt.Println("Error draining.", err)
 	}
+
 	fmt.Println("Connection drained.")
+
 	os.Exit(0)
 }

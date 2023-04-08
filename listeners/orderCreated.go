@@ -7,8 +7,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"log"
 	"time"
-	"workspace/async1"
-	"workspace/async1/tasks"
+	"workspace/async"
+	"workspace/async/tasks"
 	nt "workspace/nats"
 )
 
@@ -42,7 +42,7 @@ func OrderCreated(m *nats.Msg) {
 		log.Fatalf("could not parse time: %v", err)
 	}
 
-	taskInfo, err := async1.EnqueueOrder(task, expiresAt)
+	taskInfo, err := async.EnqueueOrder(task, expiresAt)
 	if err != nil {
 		log.Fatalf("Error enqueuing task: %v", err)
 	}
