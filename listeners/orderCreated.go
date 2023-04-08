@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/sirupsen/logrus"
 	"log"
+	"time"
 	"workspace/async1"
 	"workspace/async1/tasks"
 	nt "workspace/nats"
@@ -16,6 +18,12 @@ type Message struct {
 
 func OrderCreated(m *nats.Msg) {
 	var message Message
+
+	// Initialize logger
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	logger.Info("ORDER CREATED")
 
 	err := json.Unmarshal(m.Data, &message)
 	if err != nil {
@@ -29,12 +37,18 @@ func OrderCreated(m *nats.Msg) {
 		log.Fatalf("Error creating task: %v", err)
 	}
 
-	taskInfo, err := async1.EnqueueOrder(task, newOrder.ExpiresAt)
+	expiresAt, err := time.Parse(time.RFC3339, newOrder.ExpiresAt)
+	if err != nil {
+		log.Fatalf("could not parse time: %v", err)
+	}
+
+	taskInfo, err := async1.EnqueueOrder(task, expiresAt)
 	if err != nil {
 		log.Fatalf("Error enqueuing task: %v", err)
 	}
 
-	log.Printf("enqueued task: id=%s queue=%s", taskInfo.ID, taskInfo.Queue)
+	logrus.Debugln("enqueued task: id=%s queue=%s", taskInfo.ID, taskInfo.Queue)
+	//fmt.Printf("enqueued task: id=%s queue=%s", taskInfo.ID, taskInfo.Queue)
 	m.Ack()
 	//if err != nil {
 	//	fmt.Println("Error enqueuing task.", err)

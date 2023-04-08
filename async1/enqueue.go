@@ -1,22 +1,14 @@
 package async1
 
 import (
-	"fmt"
 	"github.com/hibiken/asynq"
 	"log"
 	"os"
 	"time"
 )
 
-func EnqueueOrder(task *asynq.Task, expiresAt string) (*asynq.TaskInfo, error) {
+func EnqueueOrder(task *asynq.Task, expiresAt time.Time) (*asynq.TaskInfo, error) {
 
-	//expiresAt string is in UTC iso8601 format
-	duration, err := time.Parse(time.RFC3339, expiresAt)
-	fmt.Println("duration:", duration)
-	if err != nil {
-		log.Fatalf("could not parse time: %v", err)
-		return nil, err
-	}
 	url := os.Getenv("REDIS_URL")
 	if url == "" {
 		url = redisAddr
@@ -30,7 +22,7 @@ func EnqueueOrder(task *asynq.Task, expiresAt string) (*asynq.TaskInfo, error) {
 	}(client)
 
 	// TODO: better ioptions to make sure that the task was complete
-	info, err := client.Enqueue(task, asynq.ProcessAt(duration))
+	info, err := client.Enqueue(task, asynq.ProcessAt(expiresAt), asynq.MaxRetry(10), asynq.Timeout(10*time.Second))
 	if err != nil {
 		log.Fatalf("could not schedule task: %v", err)
 		return nil, err

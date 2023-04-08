@@ -6,6 +6,7 @@ require (
 	github.com/hibiken/asynq v0.24.0
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/nats-io/nats.go v1.25.0
+	github.com/sirupsen/logrus v1.9.0
 )
 
 require (
