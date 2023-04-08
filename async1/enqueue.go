@@ -3,6 +3,7 @@ package async1
 import (
 	"github.com/hibiken/asynq"
 	"log"
+	"os"
 	"time"
 )
 
@@ -14,7 +15,11 @@ func EnqueueOrder(task *asynq.Task, expiresAt string) (*asynq.TaskInfo, error) {
 		log.Fatalf("could not parse time: %v", err)
 		return nil, err
 	}
-	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
+	url := os.Getenv("REDIS_URL")
+	if url == "" {
+		url = redisAddr
+	}
+	client := asynq.NewClient(asynq.RedisClientOpt{Addr: url})
 	defer func(client *asynq.Client) {
 		err := client.Close()
 		if err != nil {

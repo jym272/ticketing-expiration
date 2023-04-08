@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"os"
+	"sync"
 	"workspace/nats/jetstream"
 	"workspace/nats/utils"
 )
@@ -26,6 +27,16 @@ type Context struct {
 	Nc      *nats.Conn
 	Js      nats.JetStreamContext
 	streams []Stream
+}
+
+var instance *Context
+var once sync.Once
+
+func GetInstance() *Context {
+	once.Do(func() {
+		instance = &Context{}
+	})
+	return instance
 }
 
 func (c *Context) AddStreams() {

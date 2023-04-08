@@ -3,6 +3,7 @@ package async1
 import (
 	"github.com/hibiken/asynq"
 	"log"
+	"os"
 	"workspace/async1/tasks"
 	"workspace/nats"
 )
@@ -10,8 +11,12 @@ import (
 const redisAddr = "127.0.0.1:7157"
 
 func StartServer() {
+	url := os.Getenv("REDIS_URL")
+	if url == "" {
+		url = redisAddr
+	}
 	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: redisAddr},
+		asynq.RedisClientOpt{Addr: url},
 		asynq.Config{
 			// Specify how many concurrent workers to use
 			Concurrency: 10,

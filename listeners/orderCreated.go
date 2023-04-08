@@ -16,12 +16,13 @@ type Message struct {
 
 func OrderCreated(m *nats.Msg) {
 	var message Message
+
 	err := json.Unmarshal(m.Data, &message)
 	if err != nil {
 		log.Fatalf("Error unmarshalling message: %v", err)
 	}
 	newOrder := message.OrdersCreated
-	fmt.Println("OrderCreated received:", string(m.Data), newOrder)
+	fmt.Println("OrderCreated received:", string(m.Data), message)
 
 	task, err := tasks.OrderCreated(newOrder)
 	if err != nil {

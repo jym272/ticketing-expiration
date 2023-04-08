@@ -7,7 +7,8 @@ import (
 	"workspace/nats/utils"
 )
 
-func Subscribe(js nats.JetStreamContext, subject string, cb nats.MsgHandler) {
+func Subscribe(subject string, cb nats.MsgHandler) {
+	js := GetInstance().Js
 	sub, err := js.QueueSubscribeSync(subject, subject,
 		nats.Bind(utils.ExtractStreamName(subject), utils.GetDurableName(subject)),
 		nats.ManualAck(),
@@ -28,7 +29,8 @@ func Subscribe(js nats.JetStreamContext, subject string, cb nats.MsgHandler) {
 			panic(err)
 		}
 		//   log(`[${m.seq}]: [${sub.getProcessed()}]: ${sc.decode(m.data)}`);
-		fmt.Println("Message received:", msg.Subject)
+		fmt.Println("Message received:", msg.Subject, string(msg.Data))
+		//msg.Ack()
 		cb(msg)
 	}
 }

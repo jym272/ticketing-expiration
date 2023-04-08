@@ -22,12 +22,20 @@ func OrderCreated(order nats.OrdersCreated) (*asynq.Task, error) {
 }
 
 func (processor *OrderProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
-	var p nats.OrdersCreated
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
+
+	switch processor.subject {
+	case nats.OrderCreated:
+		var p nats.OrdersCreated
+		if err := json.Unmarshal(t.Payload(), &p); err != nil {
+			return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
+		}
+		log.Printf("Order Id: src=%d", p.ID)
+		log.Printf("Order ExpiresAt: src=%s", p.ExpiresAt)
+		// publish an order created
+		nats.Publish(nats.OrderCreated, p)
+	default:
+		return fmt.Errorf("json.Unmarshal failed: %v: %w", "unknown subject", asynq.SkipRetry)
 	}
-	log.Printf("Order Id: src=%d", p.ID)
-	log.Printf("Order ExpiresAt: src=%s", p.ExpiresAt)
 	return nil
 }
 
