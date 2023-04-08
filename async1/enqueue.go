@@ -28,6 +28,5 @@ func EnqueueOrder(task *asynq.Task, expiresAt string) (*asynq.TaskInfo, error) {
 		log.Fatalf("could not schedule task: %v", err)
 		return nil, err
 	}
-	//log.Printf("enqueued task: id=%s queue=%s", info.ID, info.Queue)
 	return info, nil
 }

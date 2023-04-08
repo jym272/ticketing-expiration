@@ -9,7 +9,7 @@ import (
 
 const redisAddr = "127.0.0.1:7157"
 
-func StartAsyncServer() {
+func StartServer() {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{

@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	as "workspace/async1"
+	async "workspace/async1"
 	"workspace/listeners"
 	nt "workspace/nats"
 )
@@ -33,9 +33,9 @@ func main() {
 		fmt.Println("Connection drained.")
 	}(ctx.Nc)
 
-	go as.StartAsyncServer()
+	go async.StartServer()
 
-	nt.Subscribe(ctx.Js, nt.OrderCreated, listeners.OrderCreatedListener)
+	nt.Subscribe(ctx.Js, nt.OrderCreated, listeners.OrderCreated)
 }
 
 func signalListener(signals chan os.Signal, nc *nats.Conn) {

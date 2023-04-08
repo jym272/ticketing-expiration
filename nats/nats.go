@@ -17,6 +17,11 @@ const (
 	TicketUpdated  string = "tickets.updated"
 )
 
+type OrdersCreated struct {
+	ID        int    `json:"id"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
 type Context struct {
 	Nc      *nats.Conn
 	Js      nats.JetStreamContext
