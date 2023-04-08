@@ -1,14 +1,15 @@
-package main
+package async1
 
 import (
 	"github.com/hibiken/asynq"
 	"log"
-	"workspace/async/tasks"
+	"workspace/async1/tasks"
+	"workspace/nats"
 )
 
 const redisAddr = "127.0.0.1:7157"
 
-func main() {
+func StartAsyncServer() {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{
@@ -24,11 +25,8 @@ func main() {
 		},
 	)
 
-	// mux maps a type to a handler
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(tasks.TypeEmailDelivery, tasks.HandleEmailDeliveryTask)
-	mux.Handle(tasks.TypeImageResize, tasks.NewImageProcessor())
-	// ...register other handlers...
+	mux.Handle(nats.OrderCreated, tasks.NewOrderProcessor(nats.OrderCreated))
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatalf("could not run server: %v", err)

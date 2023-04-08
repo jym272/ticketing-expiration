@@ -1,14 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	as "workspace/async1"
+	"workspace/listeners"
 	nt "workspace/nats"
-	"workspace/nats/listeners"
 )
 
 func main() {
@@ -27,33 +28,14 @@ func main() {
 	defer func(nc *nats.Conn) {
 		err := nc.Drain()
 		if err != nil {
-			fmt.Println("Error draining.", err)
+			log.Fatalf("Error draining: %v", err)
 		}
 		fmt.Println("Connection drained.")
 	}(ctx.Nc)
 
-	go nt.Subscribe(ctx.Js, nt.TicketCreated, func(m *nats.Msg) {
-		var ticketCreated listeners.Message
-		err := json.Unmarshal(m.Data, &ticketCreated)
-		if err != nil {
-			fmt.Println("Error unmarshalling message.", err)
-			panic(err)
-		}
-		fmt.Println("TicketCreated received:", string(m.Data), ticketCreated)
-		m.Ack()
-	})
+	go as.StartAsyncServer()
 
-	nt.Subscribe(ctx.Js, nt.TicketUpdated, func(m *nats.Msg) {
-		var ticketCreated listeners.Message
-		err := json.Unmarshal(m.Data, &ticketCreated)
-		if err != nil {
-			fmt.Println("Error unmarshalling message.", err)
-			panic(err)
-		}
-		fmt.Println("TicketCreated received:", string(m.Data), ticketCreated)
-		m.Ack()
-	})
-
+	nt.Subscribe(ctx.Js, nt.OrderCreated, listeners.OrderCreatedListener)
 }
 
 func signalListener(signals chan os.Signal, nc *nats.Conn) {

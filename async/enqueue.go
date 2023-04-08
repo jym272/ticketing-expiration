@@ -3,15 +3,20 @@ package main
 import (
 	"github.com/hibiken/asynq"
 	"log"
-	"main/async/tasks"
 	"time"
+	"workspace/async/tasks"
 )
 
 const redisAddr = "127.0.0.1:7157"
 
 func main() {
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
-	defer client.Close()
+	defer func(client *asynq.Client) {
+		err := client.Close()
+		if err != nil {
+			log.Fatalf("could not close client: %v", err)
+		}
+	}(client)
 
 	// ------------------------------------------------------
 	// Example 1: Enqueue task to be processed immediately.
@@ -44,13 +49,13 @@ func main() {
 	//            Options include MaxRetry, Queue, Timeout, Deadline, Unique etc.
 	// ----------------------------------------------------------------------------
 
-	//task, err = tasks.NewImageResizeTask("https://example.com/myassets/image.jpg")
-	//if err != nil {
-	//	log.Fatalf("could not create task: %v", err)
-	//}
-	//info, err = client.Enqueue(task, asynq.MaxRetry(10), asynq.Timeout(3*time.Minute))
-	//if err != nil {
-	//	log.Fatalf("could not enqueue task: %v", err)
-	//}
-	//log.Printf("enqueued task: id=%s queue=%s", info.ID, info.Queue)
+	task, err = tasks.NewImageResizeTask("https://example.com/myassets/image.jpg")
+	if err != nil {
+		log.Fatalf("could not create task: %v", err)
+	}
+	info, err = client.Enqueue(task, asynq.MaxRetry(10), asynq.Timeout(3*time.Minute))
+	if err != nil {
+		log.Fatalf("could not enqueue task: %v", err)
+	}
+	log.Printf("enqueued task: id=%s queue=%s", info.ID, info.Queue)
 }
