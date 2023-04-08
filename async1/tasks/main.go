@@ -24,7 +24,7 @@ func OrderCreated(order nats.OrdersCreated) (*asynq.Task, error) {
 func (processor *OrderProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 
 	switch processor.subject {
-	case nats.OrderCreated:
+	case nats.OrderCreated: // the thas has been procesed, is time to cancel the order, is expira alredy
 		var p nats.OrdersCreated
 		if err := json.Unmarshal(t.Payload(), &p); err != nil {
 			return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)

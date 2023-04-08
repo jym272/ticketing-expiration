@@ -1,6 +1,7 @@
 package async1
 
 import (
+	"fmt"
 	"github.com/hibiken/asynq"
 	"log"
 	"os"
@@ -9,8 +10,9 @@ import (
 
 func EnqueueOrder(task *asynq.Task, expiresAt string) (*asynq.TaskInfo, error) {
 
-	//expiresAt to time
+	//expiresAt string is in UTC iso8601 format
 	duration, err := time.Parse(time.RFC3339, expiresAt)
+	fmt.Println("duration:", duration)
 	if err != nil {
 		log.Fatalf("could not parse time: %v", err)
 		return nil, err
