@@ -16,6 +16,8 @@ COPY . ./
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /docker-gs-ping
 
+# https://docs.docker.com/language/golang/build-images/#tag-images
+# if it is neccesary maybe use a debian base image, missin go test also
 FROM scratch
 COPY --from=builder /docker-gs-ping /docker-gs-ping
 
