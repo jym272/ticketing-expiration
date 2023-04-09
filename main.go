@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 	"workspace/async"
-	"workspace/listeners"
+	cb "workspace/callbacks"
 
 	nt "workspace/nats"
 
@@ -27,7 +27,7 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	go listeners.Signal(signals, ctx.Nc)
+	go Signal(signals, ctx.Nc)
 
 	defer func(nc *nats.Conn) {
 		err := nc.Drain()
@@ -35,12 +35,12 @@ func main() {
 			log.Fatal("Error draining", err)
 		}
 
-		log.Info("Connection drained.")
+		log.Debug("Connection drained.")
 		nc.Close()
 	}(ctx.Nc)
 
 	go async.StartServer()
-	go nt.Subscribe(nt.OrderCreated, listeners.OrderCreated)
+	go nt.Subscribe(nt.OrderCreated, cb.OrderCreated)
 
 	e := echo.New()
 
@@ -63,4 +63,18 @@ func main() {
 	}
 
 	e.Logger.Fatal(e.Start(":" + httpPort))
+}
+
+func Signal(signals chan os.Signal, nc *nats.Conn) {
+	<-signals
+
+	err := nc.Drain()
+
+	if err != nil {
+		log.Error("Error draining.", err)
+	}
+
+	log.Debug("Connection drained.")
+
+	os.Exit(0)
 }

@@ -1,23 +1,26 @@
 package nats
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"sync"
-	"workspace/nats/jetstream"
-	"workspace/nats/utils"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/nats-io/nats.go"
 )
 
+type Subject string
+type Stream string
+
 const (
-	Tickets        string = "tickets"
-	Orders         string = "orders"
-	OrderCreated   string = "orders.created"
-	OrderCancelled string = "orders.cancelled"
-	TicketCreated  string = "tickets.created"
-	TicketUpdated  string = "tickets.updated"
+	Tickets        Stream  = "tickets"
+	Orders         Stream  = "orders"
+	OrderCreated   Subject = "orders.created"
+	OrderCancelled Subject = "orders.cancelled"
+	TicketCreated  Subject = "tickets.created"
+	TicketUpdated  Subject = "tickets.updated"
 )
 
 type OrdersCreated struct {
@@ -28,7 +31,12 @@ type OrdersCreated struct {
 type Context struct {
 	Nc      *nats.Conn
 	Js      nats.JetStreamContext
-	streams []Stream
+	streams []Streams
+}
+
+type Streams struct {
+	name     Stream
+	subjects []Subject
 }
 
 var instance *Context
@@ -43,9 +51,9 @@ func GetInstance() *Context {
 }
 
 func (c *Context) AddStreams() {
-	ticketStream := Stream{}.CreateStream(Tickets, []string{TicketCreated, TicketUpdated})
-	ordersStream := Stream{}.CreateStream(Orders, []string{OrderCreated, OrderCancelled})
-	c.streams = []Stream{ticketStream, ordersStream}
+	ticketStream := Streams{}.CreateStream(Tickets, []Subject{TicketCreated, TicketUpdated})
+	ordersStream := Streams{}.CreateStream(Orders, []Subject{OrderCreated, OrderCancelled})
+	c.streams = []Streams{ticketStream, ordersStream}
 }
 
 const MaxReconnectAttempts = 5
@@ -89,22 +97,142 @@ func (c *Context) VerifyStreams() {
 func (c *Context) VerifyConsumers() {
 	for _, stream := range c.streams {
 		for _, subject := range stream.subjects {
-			durableName, queueGroupName, filterSubject := utils.CreateConsumerProps(subject)
+			props := CreateConsumerProps(subject)
 			l := log.WithFields(log.Fields{
-				"consumer":       durableName,
+				"consumer":       props.durableName,
 				"stream":         stream.name,
-				"durableName":    durableName,
-				"queueGroupName": queueGroupName,
-				"filterSubject":  filterSubject,
+				"durableName":    props.durableName,
+				"queueGroupName": props.queueGroupName,
+				"filterSubject":  props.filterSubject,
 			})
 
-			if !jetstream.FindConsumer(c.Js, stream.name, durableName) {
+			if !FindConsumer(c.Js, stream.name, props.durableName) {
 				l.Warn("Not found. Creating...")
-				jetstream.CreateConsumer(c.Js, stream.name, durableName, queueGroupName, filterSubject)
+				CreateConsumer(c.Js, stream.name, props)
 				l.Info("Created.")
 			} else {
 				l.Debug("Found.")
 			}
 		}
+	}
+}
+
+func (s Streams) CreateStream(stream Stream, subjects []Subject) Streams {
+	validateStream(stream, subjects)
+	s.name = stream
+	s.subjects = subjects
+
+	return s
+}
+
+func createStream(js nats.JetStreamContext, stream Stream) {
+	subj := string(stream) + ".>" // ie: tickets.> -> tickets.one, tickets.one.two
+
+	_, err := js.AddStream(&nats.StreamConfig{
+		Name:     string(stream),
+		Subjects: []string{subj}, // any number of tokens->ie: events.one, events.one.two
+	})
+	if err != nil {
+		fmt.Println("Error creating stream.", err)
+		panic(err)
+	}
+}
+
+func findStream(js nats.JetStreamContext, stream Stream) bool {
+	for name := range js.StreamNames() {
+		if name == string(stream) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func validateStream(stream Stream, subjects []Subject) {
+	l := log.WithFields(log.Fields{
+		"stream":   stream,
+		"subjects": subjects,
+	})
+	if stream == "" {
+		l.Panic("stream name cannot be empty")
+	}
+
+	if len(subjects) == 0 {
+		l.Panic("subjects cannot be empty in stream")
+	}
+
+	for _, subject := range subjects {
+		if subject == "" {
+			l.Panic("subject cannot be empty in stream")
+		}
+
+		if !strings.HasPrefix(string(subject), string(stream)+".") {
+			l.Panic("subject does not start with stream.")
+		}
+	}
+}
+
+func ExtractStreamName(subject Subject) string {
+	parts := strings.Split(string(subject), ".")
+	if len(parts) == 0 {
+		panic("Subject is empty")
+	}
+
+	stream := parts[0]
+
+	return stream
+}
+
+func GetDurableName(subject Subject) string {
+	parts := strings.Split(string(subject), ".")
+	if len(parts) == 0 {
+		panic("Subject is empty")
+	}
+
+	upperCaseParts := make([]string, 0, len(parts))
+
+	for _, part := range parts {
+		upperCaseParts = append(upperCaseParts, strings.ToUpper(part))
+	}
+
+	return strings.Join(upperCaseParts, "_")
+}
+
+type ConsumerProps struct {
+	durableName    string
+	queueGroupName string
+	filterSubject  string
+}
+
+func CreateConsumerProps(subject Subject) *ConsumerProps {
+	return &ConsumerProps{
+		durableName:    GetDurableName(subject),
+		queueGroupName: string(subject),
+		filterSubject:  string(subject),
+	}
+}
+
+func FindConsumer(js nats.JetStreamContext, stream Stream, durableName string) bool {
+	for consumerInfo := range js.Consumers(string(stream)) {
+		if consumerInfo.Config.Durable == durableName {
+			return true
+		}
+	}
+
+	return false
+}
+
+func CreateConsumer(js nats.JetStreamContext, stream Stream, props *ConsumerProps) {
+	_, err := js.AddConsumer(string(stream), &nats.ConsumerConfig{
+		Durable:        props.durableName,
+		DeliverPolicy:  nats.DeliverAllPolicy,
+		AckPolicy:      nats.AckExplicitPolicy,
+		DeliverSubject: nats.NewInbox(),
+		DeliverGroup:   props.queueGroupName,
+		FilterSubject:  props.filterSubject,
+	})
+	if err != nil {
+		fmt.Println("Error creating consumer.", err)
+		panic(err)
 	}
 }

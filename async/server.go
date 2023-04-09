@@ -1,39 +1,50 @@
 package async
 
 import (
-	"github.com/hibiken/asynq"
-	"log"
 	"os"
-	"workspace/async/tasks"
 	"workspace/nats"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/hibiken/asynq"
 )
 
-const redisAddr = "127.0.0.1:7157"
+type Priority int
+
+const (
+	concurrentWorkers = 10
+	redisAddr         = "127.0.0.1:7157"
+	criticalPriority  = Priority(6)
+	defaultPriority   = Priority(3)
+	lowPriority       = Priority(1)
+)
 
 func StartServer() {
 	url := os.Getenv("REDIS_URL")
 	if url == "" {
 		url = redisAddr
 	}
+
+	l := log.WithFields(log.Fields{
+		"redis_url": url,
+	})
+
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: url},
 		asynq.Config{
-			// Specify how many concurrent workers to use
-			Concurrency: 10,
-			// Optionally specify multiple queues with different priority.
+			Concurrency: concurrentWorkers,
 			Queues: map[string]int{
-				"critical": 6,
-				"default":  3,
-				"low":      1,
+				"critical": int(criticalPriority),
+				"default":  int(defaultPriority),
+				"low":      int(lowPriority),
 			},
-			// See the godoc for other configuration options
 		},
 	)
 
 	mux := asynq.NewServeMux()
-	mux.Handle(nats.OrderCreated, tasks.NewOrderProcessor(nats.OrderCreated))
+	mux.Handle(string(nats.OrderCreated), NewOrderProcessor(nats.OrderCreated))
 
 	if err := srv.Run(mux); err != nil {
-		log.Fatalf("could not run server: %v", err)
+		l.Fatalf("could not run server: %v", err)
 	}
 }

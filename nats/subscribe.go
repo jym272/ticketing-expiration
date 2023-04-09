@@ -2,7 +2,6 @@ package nats
 
 import (
 	"time"
-	"workspace/nats/utils"
 
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
@@ -10,13 +9,13 @@ import (
 
 const TIMEOUT = 5 * time.Second
 
-func Subscribe(subject string, cb nats.MsgHandler) {
+func Subscribe(subject Subject, cb nats.MsgHandler) {
 	l := log.WithFields(log.Fields{
 		"subject": subject,
 	})
 	js := GetInstance().Js
-	sub, err := js.QueueSubscribeSync(subject, subject,
-		nats.Bind(utils.ExtractStreamName(subject), utils.GetDurableName(subject)),
+	sub, err := js.QueueSubscribeSync(string(subject), string(subject),
+		nats.Bind(ExtractStreamName(subject), GetDurableName(subject)),
 		nats.ManualAck(),
 	)
 

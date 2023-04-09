@@ -6,13 +6,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Publish(subject string, msg interface{}) {
+func Publish(subject Subject, msg interface{}) {
 	l := log.WithFields(log.Fields{
 		"subject": subject,
 	})
 	js := GetInstance().Js
 
-	if subject == OrderCreated {
+	if subject == OrderCancelled {
 		if _, ok := msg.(OrdersCreated); !ok {
 			l.Error("Error casting message:", msg)
 			return
@@ -25,7 +25,7 @@ func Publish(subject string, msg interface{}) {
 			return
 		}
 
-		paf, err := js.PublishAsync("orders.cancelled", data)
+		paf, err := js.PublishAsync(string(OrderCancelled), data)
 		if err != nil {
 			l.Error("Error publishing message:", err)
 			return

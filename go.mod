@@ -7,7 +7,6 @@ require (
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/nats-io/nats.go v1.25.0
 	github.com/sirupsen/logrus v1.9.0
-	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 )
 
 require (
@@ -16,6 +15,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
