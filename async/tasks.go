@@ -47,10 +47,13 @@ func (processor *Processor) ProcessTask(_ context.Context, t *asynq.Task) error 
 			"expires_at": p.ExpiresAt,
 		})
 		l.Info("Task processed")
-		nats.Publish(nats.ExpirationComplete, p)
+
+		err := nats.Publish(nats.ExpirationComplete, p)
+		if err != nil {
+			return fmt.Errorf("publishing to subject=%s has failed: %w", nats.ExpirationComplete, asynq.SkipRetry)
+		}
 	case nats.OrderCancelled, nats.ExpirationComplete:
-		log.Printf("Processor.ProcessTask: subject=%s", processor.subject)
-		return fmt.Errorf("json.Unmarshal failed: %v: %w", "unknown subject", asynq.SkipRetry)
+		return fmt.Errorf("the Subject has not yet been implemented: subject=%s: %w", processor.subject, asynq.SkipRetry)
 	}
 
 	return nil
