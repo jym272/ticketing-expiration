@@ -50,7 +50,7 @@ func (processor *Processor) ProcessTask(_ context.Context, t *asynq.Task) error 
 
 		err := nats.Publish(nats.ExpirationComplete, p)
 		if err != nil {
-			return fmt.Errorf("publishing to subject=%s has failed: %w", nats.ExpirationComplete, asynq.SkipRetry)
+			return fmt.Errorf("publishing to subject=%s has failed", nats.ExpirationComplete)
 		}
 	case nats.OrderCancelled, nats.ExpirationComplete:
 		return fmt.Errorf("the Subject has not yet been implemented: subject=%s: %w", processor.subject, asynq.SkipRetry)
