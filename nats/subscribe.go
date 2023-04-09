@@ -41,7 +41,6 @@ func Subscribe(subject Subject, cb nats.MsgHandler) {
 			l.Panic("Error getting next message", err)
 		}
 
-		l.Info("Message received")
 		cb(msg)
 	}
 }

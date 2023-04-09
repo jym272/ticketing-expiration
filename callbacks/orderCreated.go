@@ -55,7 +55,6 @@ func OrderCreated(m *nats.Msg) {
 		return
 	}
 
-	// task, err := async.OrderCreated(order)
 	task, err := async.CreateTask(order, nt.OrderCreated)
 	if err != nil {
 		l.Errorf("Error creating task: %v", err)
