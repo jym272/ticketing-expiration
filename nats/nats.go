@@ -87,9 +87,11 @@ func (c *Context) VerifyStreams() {
 			l.Warn("Not found. Creating...")
 			createStream(c.Js, name)
 			l.Info("Created.")
-		} else {
-			l.Debug("Found.")
+
+			continue
 		}
+
+		l.Debug("Found.")
 	}
 }
 
@@ -109,9 +111,11 @@ func (c *Context) VerifyConsumers() {
 				l.Warn("Not found. Creating...")
 				CreateConsumer(c.Js, stream.name, props)
 				l.Info("Created.")
-			} else {
-				l.Debug("Found.")
+
+				continue
 			}
+
+			l.Debug("Found.")
 		}
 	}
 }
