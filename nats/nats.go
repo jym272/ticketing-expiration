@@ -15,12 +15,11 @@ type Subject string
 type Stream string
 
 const (
-	Tickets        Stream  = "tickets"
-	Orders         Stream  = "orders"
-	OrderCreated   Subject = "orders.created"
-	OrderCancelled Subject = "orders.cancelled"
-	TicketCreated  Subject = "tickets.created"
-	TicketUpdated  Subject = "tickets.updated"
+	Orders             Stream  = "orders"
+	Expiration         Stream  = "expiration"
+	OrderCreated       Subject = "orders.created"
+	OrderCancelled     Subject = "orders.cancelled"
+	ExpirationComplete Subject = "expiration.complete"
 )
 
 type OrdersCreated struct {
@@ -51,9 +50,9 @@ func GetInstance() *Context {
 }
 
 func (c *Context) AddStreams() {
-	ticketStream := Streams{}.CreateStream(Tickets, []Subject{TicketCreated, TicketUpdated})
+	expirationStream := Streams{}.CreateStream(Expiration, []Subject{ExpirationComplete})
 	ordersStream := Streams{}.CreateStream(Orders, []Subject{OrderCreated, OrderCancelled})
-	c.streams = []Streams{ticketStream, ordersStream}
+	c.streams = []Streams{expirationStream, ordersStream}
 }
 
 const MaxReconnectAttempts = 5

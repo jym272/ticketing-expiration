@@ -11,7 +11,7 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-type OrderProcessor struct {
+type Processor struct {
 	subject nats.Subject
 }
 
@@ -33,7 +33,7 @@ func CreateTask[T any](msg T, subject nats.Subject) (*asynq.Task, error) {
 	return asynq.NewTask(string(subject), payload), nil
 }
 
-func (processor *OrderProcessor) ProcessTask(_ context.Context, t *asynq.Task) error {
+func (processor *Processor) ProcessTask(_ context.Context, t *asynq.Task) error {
 	switch processor.subject {
 	case nats.OrderCreated:
 		var p nats.OrdersCreated
@@ -42,21 +42,22 @@ func (processor *OrderProcessor) ProcessTask(_ context.Context, t *asynq.Task) e
 		}
 
 		l := log.WithFields(log.Fields{
+			"subject":    nats.OrderCreated,
 			"order_id":   p.ID,
 			"expires_at": p.ExpiresAt,
 		})
-		l.Info("Order processed")
-		nats.Publish(nats.OrderCancelled, p)
-	case nats.OrderCancelled, nats.TicketCreated, nats.TicketUpdated:
-		log.Printf("OrderProcessor.ProcessTask: subject=%s", processor.subject)
+		l.Info("Task processed")
+		nats.Publish(nats.ExpirationComplete, p)
+	case nats.OrderCancelled, nats.ExpirationComplete:
+		log.Printf("Processor.ProcessTask: subject=%s", processor.subject)
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", "unknown subject", asynq.SkipRetry)
 	}
 
 	return nil
 }
 
-func NewOrderProcessor(subj nats.Subject) *OrderProcessor {
-	return &OrderProcessor{
+func NewProcessor(subj nats.Subject) *Processor {
+	return &Processor{
 		subject: subj,
 	}
 }

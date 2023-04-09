@@ -42,7 +42,7 @@ func StartServer() {
 	)
 
 	mux := asynq.NewServeMux()
-	mux.Handle(string(nats.OrderCreated), NewOrderProcessor(nats.OrderCreated))
+	mux.Handle(string(nats.OrderCreated), NewProcessor(nats.OrderCreated))
 
 	if err := srv.Run(mux); err != nil {
 		l.Fatalf("could not run server: %v", err)

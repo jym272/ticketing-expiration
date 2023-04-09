@@ -12,7 +12,7 @@ func Publish(subject Subject, msg interface{}) {
 	})
 	js := GetInstance().Js
 
-	if subject == OrderCancelled {
+	if subject == ExpirationComplete {
 		if _, ok := msg.(OrdersCreated); !ok {
 			l.Error("Error casting message:", msg)
 			return
@@ -25,7 +25,7 @@ func Publish(subject Subject, msg interface{}) {
 			return
 		}
 
-		paf, err := js.PublishAsync(string(OrderCancelled), data)
+		paf, err := js.PublishAsync(string(subject), data)
 		if err != nil {
 			l.Error("Error publishing message:", err)
 			return
