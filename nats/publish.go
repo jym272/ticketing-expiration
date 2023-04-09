@@ -2,35 +2,45 @@ package nats
 
 import (
 	"encoding/json"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func Publish(subject string, msg interface{}) {
+	l := log.WithFields(log.Fields{
+		"subject": subject,
+	})
 	js := GetInstance().Js
 
 	if subject == OrderCreated {
 		if _, ok := msg.(OrdersCreated); !ok {
-			log.Println("Error casting message:", msg)
+			l.Error("Error casting message:", msg)
 			return
 		}
 
 		data, err := json.Marshal(msg.(OrdersCreated))
 
 		if err != nil {
-			log.Println("Error marshalling message:", err)
+			l.Error("Error marshalling message:", err)
 			return
 		}
 
 		paf, err := js.PublishAsync("orders.cancelled", data)
 		if err != nil {
-			log.Println("Error publishing message:", err)
+			l.Error("Error publishing message:", err)
 			return
 		}
 		select {
 		case errChan := <-paf.Err():
-			log.Println("Error publishing message:", errChan)
+			l.Error("Error publishing message:", errChan)
 		case pa := <-paf.Ok():
-			log.Printf("Published message to %s, seq: %d, duplicate: %t, domain: %s", pa.Stream, pa.Sequence, pa.Duplicate, pa.Domain)
+			l = log.WithFields(log.Fields{
+				"subject": subject,
+				"seq":     pa.Sequence,
+				"dup":     pa.Duplicate,
+				"stream":  pa.Stream,
+			})
+			l.Info("Message published.")
 		}
 	}
 }

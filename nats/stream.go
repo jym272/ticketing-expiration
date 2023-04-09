@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/nats-io/nats.go"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Stream struct {
@@ -44,21 +46,25 @@ func findStream(js nats.JetStreamContext, stream string) bool {
 }
 
 func validateStream(stream string, subjects []string) {
+	l := log.WithFields(log.Fields{
+		"stream":   stream,
+		"subjects": subjects,
+	})
 	if stream == "" {
-		panic("stream name cannot be empty")
+		l.Panic("stream name cannot be empty")
 	}
 
 	if len(subjects) == 0 {
-		panic("subjects cannot be empty in stream: " + stream)
+		l.Panic("subjects cannot be empty in stream")
 	}
 
 	for _, subject := range subjects {
 		if subject == "" {
-			panic("subject cannot be empty in stream: " + stream)
+			l.Panic("subject cannot be empty in stream")
 		}
 
 		if !strings.HasPrefix(subject, stream+".") {
-			panic("subject: " + subject + " does not start with stream: " + stream + ".")
+			l.Panic("subject does not start with stream.")
 		}
 	}
 }

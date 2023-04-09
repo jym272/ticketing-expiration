@@ -7,6 +7,7 @@ require (
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/nats-io/nats.go v1.25.0
 	github.com/sirupsen/logrus v1.9.0
+	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 )
 
 require (

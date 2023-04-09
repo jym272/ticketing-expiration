@@ -1,11 +1,12 @@
 package nats
 
 import (
-	"fmt"
 	"os"
 	"sync"
 	"workspace/nats/jetstream"
 	"workspace/nats/utils"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/nats-io/nats.go"
 )
@@ -57,28 +58,30 @@ func (c *Context) ConnectToNats() {
 
 	nc, err := nats.Connect(url, nats.MaxReconnects(MaxReconnectAttempts))
 	if err != nil {
-		fmt.Println("Error connecting to NATS.", err)
-		panic(err)
+		log.Panic("Error connecting to NATS.", err)
 	}
 
 	c.Nc = nc
 	c.Js, err = nc.JetStream()
 
 	if err != nil {
-		fmt.Println("Error creating JetStream context.", err)
-		panic(err)
+		log.Panic("Error creating JetStream context.", err)
 	}
 }
 
 func (c *Context) VerifyStreams() {
 	for _, stream := range c.streams {
 		name := stream.name
+		l := log.WithFields(log.Fields{
+			"stream": name,
+		})
+
 		if !findStream(c.Js, name) {
-			fmt.Println("Stream not found:", name, "Creating...")
+			l.Warn("Not found. Creating...")
 			createStream(c.Js, name)
-			fmt.Println("Stream created:", name)
+			l.Info("Created.")
 		} else {
-			fmt.Println("Stream found:", name)
+			l.Debug("Found.")
 		}
 	}
 }
@@ -87,12 +90,20 @@ func (c *Context) VerifyConsumers() {
 	for _, stream := range c.streams {
 		for _, subject := range stream.subjects {
 			durableName, queueGroupName, filterSubject := utils.CreateConsumerProps(subject)
+			l := log.WithFields(log.Fields{
+				"consumer":       durableName,
+				"stream":         stream.name,
+				"durableName":    durableName,
+				"queueGroupName": queueGroupName,
+				"filterSubject":  filterSubject,
+			})
+
 			if !jetstream.FindConsumer(c.Js, stream.name, durableName) {
-				fmt.Println("Consumer not found:", durableName, "Creating consumer...")
+				l.Warn("Not found. Creating...")
 				jetstream.CreateConsumer(c.Js, stream.name, durableName, queueGroupName, filterSubject)
-				fmt.Println("Consumer created:", durableName)
+				l.Info("Created.")
 			} else {
-				fmt.Println("Consumer found:", durableName)
+				l.Debug("Found.")
 			}
 		}
 	}

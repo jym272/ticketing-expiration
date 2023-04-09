@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,17 +8,15 @@ import (
 	"workspace/async"
 	"workspace/listeners"
 
+	nt "workspace/nats"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/nats-io/nats.go"
-
-	nt "workspace/nats"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
 	ctx := nt.GetInstance()
 
 	ctx.AddStreams()
@@ -28,15 +24,18 @@ func main() {
 	ctx.VerifyStreams()
 	ctx.VerifyConsumers()
 
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
 	go listeners.Signal(signals, ctx.Nc)
 
 	defer func(nc *nats.Conn) {
 		err := nc.Drain()
 		if err != nil {
-			log.Fatalf("Error draining: %v", err)
+			log.Fatal("Error draining", err)
 		}
 
-		fmt.Println("Connection drained.")
+		log.Info("Connection drained.")
 		nc.Close()
 	}(ctx.Nc)
 
