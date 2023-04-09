@@ -4,43 +4,102 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
-	"workspace/async"
+	"sync"
+	as "workspace/async"
 	cb "workspace/callbacks"
-
 	nt "workspace/nats"
 
-	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/nats-io/nats.go"
+	"golang.org/x/sys/unix"
+
+	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 )
 
-func main() {
-	ctx := nt.GetInstance()
+type EchoServer struct {
+	server *echo.Echo
+}
 
-	ctx.AddStreams()
-	ctx.ConnectToNats()
-	ctx.VerifyStreams()
-	ctx.VerifyConsumers()
+type Server struct {
+	wg    sync.WaitGroup
+	nats  *nt.Nats
+	async *as.Async
+	echo  *EchoServer
+}
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+func (srv *Server) waitForSignals() {
+	//srv.logger.Info("Send signal TSTP to stop processing new tasks")
+	//srv.logger.Info("Send signal TERM or INT to terminate the process")
 
-	go Signal(signals, ctx.Nc)
-
-	defer func(nc *nats.Conn) {
-		err := nc.Drain()
-		if err != nil {
-			log.Fatal("Error draining", err)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, unix.SIGTERM, unix.SIGINT, unix.SIGTSTP)
+	for {
+		sig := <-sigs
+		if sig == unix.SIGTSTP {
+			//srv.async.Stop()
+			continue
 		}
+		break
+	}
+}
 
-		log.Debug("Connection drained.")
-		nc.Close()
-	}(ctx.Nc)
+func NewServer() *Server {
 
-	go async.StartServer()
-	go nt.Subscribe(nt.OrderCreated, cb.OrderCreated)
+	var subs []nt.Subscriber
+	sub := &nt.Subscriber{
+		Subject: nt.OrderCreated,
+		Cb:      cb.OrderCreated,
+	}
+	subs = append(subs, *sub)
+	return &Server{
+		nats:  nt.GetNats(subs),
+		async: as.GetAsync(),
+		echo:  getEcho(),
+	}
+}
+
+func (srv *Server) Run() error {
+	if err := srv.Start(); err != nil {
+		return err
+	}
+	srv.waitForSignals()
+	//srv.Shutdown()
+	return nil
+}
+
+func (e *EchoServer) Start(wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		httpPort := os.Getenv("PORT")
+		if httpPort == "" {
+			httpPort = "8080"
+		}
+		e.server.Logger.Fatal(e.server.Start(":" + httpPort))
+	}()
+
+}
+
+func (srv *Server) Start() error {
+
+	srv.async.Start(&srv.wg)
+	srv.nats.Start(&srv.wg)
+	srv.echo.Start(&srv.wg)
+	// EL SHUTDOWN usa signals
+
+	return nil
+}
+
+func main() {
+
+	srv := NewServer()
+	if err := srv.Run(); err != nil {
+		log.Fatalf("could not run server: %v", err)
+	}
+
+}
+
+func getEcho() *EchoServer {
 
 	e := echo.New()
 
@@ -56,25 +115,8 @@ func main() {
 			Status string `json:"status"`
 		}{Status: "OK"})
 	})
-
-	httpPort := os.Getenv("PORT")
-	if httpPort == "" {
-		httpPort = "8080"
+	return &EchoServer{
+		server: e,
 	}
 
-	e.Logger.Fatal(e.Start(":" + httpPort))
-}
-
-func Signal(signals chan os.Signal, nc *nats.Conn) {
-	<-signals
-
-	err := nc.Drain()
-
-	if err != nil {
-		log.Error("Error draining.", err)
-	}
-
-	log.Debug("Connection drained.")
-
-	os.Exit(0)
 }

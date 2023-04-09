@@ -27,10 +27,15 @@ type OrdersCreated struct {
 	ID        int    `json:"id"`
 }
 
-type Context struct {
-	Nc      *nats.Conn
-	Js      nats.JetStreamContext
-	streams []Streams
+type Subscriber struct {
+	Cb      nats.MsgHandler
+	Subject Subject
+}
+type Nats struct {
+	Nc          *nats.Conn
+	Js          nats.JetStreamContext
+	streams     []Streams
+	subscribers []Subscriber
 }
 
 type Streams struct {
@@ -38,18 +43,45 @@ type Streams struct {
 	subjects []Subject
 }
 
-var instance *Context
+var instance *Nats
 var once sync.Once
 
-func GetInstance() *Context {
+func GetInstance() *Nats {
 	once.Do(func() {
-		instance = &Context{}
+		instance = &Nats{}
 	})
 
 	return instance
 }
 
-func (c *Context) AddStreams() {
+func GetNats(subs []Subscriber) *Nats {
+	n := GetInstance()
+	n.subscribers = subs
+	return n
+}
+
+func (c *Nats) StartServer() {
+	c.AddStreams()
+	c.ConnectToNats()
+	c.VerifyStreams()
+	c.VerifyConsumers()
+}
+
+func (c *Nats) Start(wg *sync.WaitGroup) {
+
+	c.StartServer()
+	for _, subscriber := range c.subscribers {
+		wg.Add(1)
+		go func(sub Subscriber) {
+			defer wg.Done()
+			Subscribe(sub.Subject, sub.Cb)
+		}(subscriber)
+
+	}
+
+}
+
+func (c *Nats) AddStreams() {
 	expirationStream := Streams{}.CreateStream(Expiration, []Subject{ExpirationComplete})
 	ordersStream := Streams{}.CreateStream(Orders, []Subject{OrderCreated, OrderCancelled})
 	c.streams = []Streams{expirationStream, ordersStream}
@@ -57,7 +89,7 @@ func (c *Context) AddStreams() {
 
 const MaxReconnectAttempts = 5
 
-func (c *Context) ConnectToNats() {
+func (c *Nats) ConnectToNats() {
 	url := os.Getenv("NATS_URL")
 	if url == "" {
 		url = nats.DefaultURL
@@ -76,7 +108,7 @@ func (c *Context) ConnectToNats() {
 	}
 }
 
-func (c *Context) VerifyStreams() {
+func (c *Nats) VerifyStreams() {
 	for _, stream := range c.streams {
 		name := stream.name
 		l := log.WithFields(log.Fields{
@@ -95,7 +127,7 @@ func (c *Context) VerifyStreams() {
 	}
 }
 
-func (c *Context) VerifyConsumers() {
+func (c *Nats) VerifyConsumers() {
 	for _, stream := range c.streams {
 		for _, subject := range stream.subjects {
 			props := CreateConsumerProps(subject)

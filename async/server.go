@@ -2,6 +2,7 @@ package async
 
 import (
 	"os"
+	"sync"
 	"time"
 	"workspace/nats"
 
@@ -27,13 +28,30 @@ func redisHealthFunc(err error) {
 	}
 }
 
-func StartServer() {
+type Async struct {
+	srv *asynq.Server
+	mux *asynq.ServeMux
+}
+
+func (a *Async) Start(wg *sync.WaitGroup) {
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := a.srv.Run(a.mux); err != nil {
+			log.Fatalf("could not run server: %v", err)
+		}
+	}()
+
+}
+
+func GetAsync() (srv *Async) {
 	url := os.Getenv("REDIS_URL")
 	if url == "" {
 		url = redisAddr
 	}
 
-	srv := asynq.NewServer(
+	server := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: url},
 		asynq.Config{
 			Concurrency: concurrentWorkers,
@@ -50,8 +68,8 @@ func StartServer() {
 
 	mux := asynq.NewServeMux()
 	mux.Handle(string(nats.OrderCreated), NewProcessor(nats.OrderCreated))
-
-	if err := srv.Run(mux); err != nil {
-		log.Fatalf("could not run server: %v", err)
+	return &Async{
+		srv: server,
+		mux: mux,
 	}
 }
