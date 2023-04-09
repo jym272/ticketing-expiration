@@ -2,6 +2,7 @@ package async
 
 import (
 	"os"
+	"time"
 	"workspace/nats"
 
 	log "github.com/sirupsen/logrus"
@@ -12,22 +13,25 @@ import (
 type Priority int
 
 const (
-	concurrentWorkers = 10
-	redisAddr         = "127.0.0.1:7157"
-	criticalPriority  = Priority(6)
-	defaultPriority   = Priority(3)
-	lowPriority       = Priority(1)
+	concurrentWorkers   = 10
+	redisAddr           = "127.0.0.1:7157"
+	criticalPriority    = Priority(6)
+	defaultPriority     = Priority(3)
+	lowPriority         = Priority(1)
+	healthCheckInterval = 2 * time.Second
 )
+
+func redisHealthFunc(err error) {
+	if err != nil {
+		log.Panic("a redis error has been found: ", err)
+	}
+}
 
 func StartServer() {
 	url := os.Getenv("REDIS_URL")
 	if url == "" {
 		url = redisAddr
 	}
-
-	l := log.WithFields(log.Fields{
-		"redis_url": url,
-	})
 
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: url},
@@ -38,6 +42,9 @@ func StartServer() {
 				"default":  int(defaultPriority),
 				"low":      int(lowPriority),
 			},
+			Logger:              log.New(),
+			HealthCheckInterval: healthCheckInterval,
+			HealthCheckFunc:     redisHealthFunc,
 		},
 	)
 
@@ -45,6 +52,6 @@ func StartServer() {
 	mux.Handle(string(nats.OrderCreated), NewProcessor(nats.OrderCreated))
 
 	if err := srv.Run(mux); err != nil {
-		l.Fatalf("could not run server: %v", err)
+		log.Fatalf("could not run server: %v", err)
 	}
 }
