@@ -6,53 +6,47 @@ import (
 	"os"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	log "github.com/sirupsen/logrus"
 )
 
 type EchoServer struct {
 	server *echo.Echo
-	logger *log.Logger
 	done   chan struct{}
 }
 
 func (e *EchoServer) start(wg *sync.WaitGroup) {
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
+
 		httpPort := os.Getenv("PORT")
 		if httpPort == "" {
 			httpPort = "8080"
 		}
 
-		go func() {
-			if err := e.server.Start(":" + httpPort); err != nil && err != http.ErrServerClosed {
-				e.logger.Fatal(err)
-			}
-		}()
-		for {
-			select {
-			case <-e.done:
-				e.logger.Info("EchoServer stopping")
-				if err := e.server.Shutdown(stdContext.Background()); err != nil {
-					e.logger.Fatal(err)
-				}
-				e.logger.Info("EchoServer stopped")
-				return
-			}
+		if err := e.server.Start(":" + httpPort); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
 		}
 	}()
 
-}
+	go func() {
+		for range e.done {
+			if err := e.server.Shutdown(stdContext.Background()); err != nil {
+				log.Fatal(err)
+			}
 
+			log.Info("EchoServer stopped")
+		}
+	}()
+}
 func (e *EchoServer) shutdown() {
 	e.done <- struct{}{}
 }
 
-func newEcho(logger *log.Logger) *EchoServer {
-
+func getEcho() *EchoServer {
 	e := echo.New()
 
 	e.Use(middleware.Logger())
@@ -67,10 +61,9 @@ func newEcho(logger *log.Logger) *EchoServer {
 			Status string `json:"status"`
 		}{Status: "OK"})
 	})
+
 	return &EchoServer{
 		server: e,
 		done:   make(chan struct{}),
-		logger: logger,
 	}
-
 }

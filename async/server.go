@@ -34,16 +34,15 @@ type Async struct {
 }
 
 func (a *Async) Start(wg *sync.WaitGroup) {
-
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
-		if err := a.srv.Run(a.mux); err != nil {
-			log.Fatalf("could not run server: %v", err)
-		}
-		log.Info("Async server stopped")
-	}()
 
+		if err := a.srv.Run(a.mux); err != nil {
+			log.Fatalf("could not run the async server: %v", err)
+		}
+	}()
 }
 
 func GetAsync() (srv *Async) {
@@ -69,6 +68,7 @@ func GetAsync() (srv *Async) {
 
 	mux := asynq.NewServeMux()
 	mux.Handle(string(nats.OrderCreated), NewProcessor(nats.OrderCreated))
+
 	return &Async{
 		srv: server,
 		mux: mux,

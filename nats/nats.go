@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -13,6 +14,8 @@ import (
 
 type Subject string
 type Stream string
+
+const TIMEOUT = 5 * time.Second
 
 const (
 	Orders             Stream  = "orders"
@@ -60,6 +63,7 @@ func GetNats(subs []Subscriber) *Nats {
 	n := GetInstance()
 	n.subscribers = subs
 	n.done = make(chan struct{})
+
 	return n
 }
 
@@ -78,32 +82,27 @@ func (n *Nats) subscribe(subject Subject, cb nats.MsgHandler) {
 		nats.Bind(ExtractStreamName(subject), GetDurableName(subject)),
 		nats.ManualAck(),
 	)
-	// append to subscriptions
-	n.subscriptions = append(n.subscriptions, sub)
 
 	if err != nil {
 		l.Panic("Error subscribing to subject: ", subject, err)
 	}
 
-	l.Infof("Subscribed to subject: %s", subject)
+	n.subscriptions = append(n.subscriptions, sub)
+
+	l.Info("Subscribed")
 
 	for {
-		l = log.WithFields(log.Fields{
-			"subject": subject,
-		})
-
 		msg, err := sub.NextMsg(TIMEOUT)
 		if err != nil {
 			if err == nats.ErrTimeout {
 				l.Trace("Timeout waiting for message")
 				continue
 			}
-			// Because of MaxReconnectAttempts, probably nats: connection closed
-			// is panic-worthy. -> this goroutine will die and the process will exit.
-			// ErrBadSubscription -> because of the way we are unsubscribing, we get this error
+			// ErrBadSubscription -> because of unsubscribing/draining, we get this error
 			if err == nats.ErrBadSubscription {
-				break
+				break // stop the sub
 			}
+			// Because of MaxReconnectAttempts, probably nats: connection closed
 			l.Panic("Error getting next message", err)
 		}
 
@@ -111,36 +110,37 @@ func (n *Nats) subscribe(subject Subject, cb nats.MsgHandler) {
 	}
 }
 func (n *Nats) Start(wg *sync.WaitGroup) {
-
 	n.StartServer()
-	for iteration, subscriber := range n.subscribers {
+
+	for _, subscriber := range n.subscribers {
 		wg.Add(1)
-		go func(sub Subscriber, i int) {
+
+		go func(sub Subscriber) {
 			defer wg.Done()
 			n.subscribe(sub.Subject, sub.Cb)
-			log.Infof("UnSubscribed to %s", sub.Subject)
-		}(subscriber, iteration)
+			log.Infof("unsubscribed to %s", sub.Subject)
+		}(subscriber)
 	}
+
 	go func() {
-		for {
-			select {
-			case <-n.done:
-				log.Info("Stopping nats server...", n.subscriptions)
-				//for _, sub := range n.subscriptions {
-				//	err := sub.Unsubscribe()
-				//	if err != nil {
-				//		log.Error("Error unsubscribing from nats server", err)
-				//		return
-				//	}
-				//}
-				n.Nc.Drain()
+		for range n.done {
+			// for _, sub := range n.subscriptions {
+			//	 err := sub.Unsubscribe()
+			//	 if err != nil {
+			//		 log.Error("Error unsubscribing from nats server", err)
+			//		 return
+			//	 }
+			// }
+			// Drain Nc also Drain all subs
+			err := n.Nc.Drain()
+			if err != nil {
+				log.Error("Error draining nats server", err)
 				return
 			}
 		}
 	}()
 }
-func (n *Nats) Stop() {
-	//c.Nc.Close()
+func (n *Nats) Shutdown() {
 	n.done <- struct{}{}
 }
 

@@ -14,77 +14,59 @@ import (
 )
 
 type Server struct {
-	wg    sync.WaitGroup
 	nats  *nt.Nats
-	async *as.Async
 	echo  *EchoServer
+	async *as.Async
+	wg    sync.WaitGroup
 }
 
 func (srv *Server) waitForSignals() {
-	//srv.logger.Info("Send signal TSTP to stop processing new tasks")
-	//srv.logger.Info("Send signal TERM or INT to terminate the process")
-
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, unix.SIGTERM, unix.SIGINT, unix.SIGTSTP)
+
 	for {
-		sig := <-sigs
-		if sig == unix.SIGTSTP {
-			//srv.async.Stop()
-			continue
-		}
+		<-sigs
 		break
 	}
 }
 
 func NewServer() *Server {
-
 	var subs []nt.Subscriber
-	sub := &nt.Subscriber{
+
+	orderSub := &nt.Subscriber{
 		Subject: nt.OrderCreated,
 		Cb:      cb.OrderCreated,
 	}
-	subs = append(subs, *sub)
-	logger := log.New()
+	subs = append(subs, *orderSub)
+
 	return &Server{
 		nats:  nt.GetNats(subs),
 		async: as.GetAsync(),
-		echo:  newEcho(logger),
+		echo:  getEcho(),
 	}
 }
 
-func (srv *Server) Run() error {
-	if err := srv.start(); err != nil {
-		return err
-	}
+func (srv *Server) Run() {
+	srv.start()
 	srv.waitForSignals()
 	srv.shutdown()
-	return nil
 }
 
-func (srv *Server) start() error {
-
+func (srv *Server) start() {
 	srv.async.Start(&srv.wg)
 	srv.nats.Start(&srv.wg)
 	srv.echo.start(&srv.wg)
-	// EL SHUTDOWN usa signals
-
-	return nil
 }
 
 func (srv *Server) shutdown() {
-	srv.nats.Stop()
-	//srv.async.Stop()
+	srv.nats.Shutdown()
+	// async also listens the same signals and stops itself
 	srv.echo.shutdown()
 	srv.wg.Wait()
 	log.Info("Server stopped")
-
 }
 
 func main() {
-
 	srv := NewServer()
-	if err := srv.Run(); err != nil {
-		log.Fatalf("could not run server: %v", err)
-	}
-
+	srv.Run()
 }
