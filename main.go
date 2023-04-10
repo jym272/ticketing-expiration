@@ -72,10 +72,11 @@ func (srv *Server) start() error {
 }
 
 func (srv *Server) shutdown() {
-	//srv.nats.Stop()
+	srv.nats.Stop()
 	//srv.async.Stop()
 	srv.echo.shutdown()
 	srv.wg.Wait()
+	log.Info("Server stopped")
 
 }
 

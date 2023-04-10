@@ -41,6 +41,7 @@ func (a *Async) Start(wg *sync.WaitGroup) {
 		if err := a.srv.Run(a.mux); err != nil {
 			log.Fatalf("could not run server: %v", err)
 		}
+		log.Info("Async server stopped")
 	}()
 
 }

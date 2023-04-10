@@ -32,10 +32,12 @@ type Subscriber struct {
 	Subject Subject
 }
 type Nats struct {
-	Nc          *nats.Conn
-	Js          nats.JetStreamContext
-	streams     []Streams
-	subscribers []Subscriber
+	Nc            *nats.Conn
+	Js            nats.JetStreamContext
+	streams       []Streams
+	subscribers   []Subscriber
+	done          chan struct{}
+	subscriptions []*nats.Subscription
 }
 
 type Streams struct {
@@ -57,39 +59,100 @@ func GetInstance() *Nats {
 func GetNats(subs []Subscriber) *Nats {
 	n := GetInstance()
 	n.subscribers = subs
+	n.done = make(chan struct{})
 	return n
 }
 
-func (c *Nats) StartServer() {
-	c.AddStreams()
-	c.ConnectToNats()
-	c.VerifyStreams()
-	c.VerifyConsumers()
+func (n *Nats) StartServer() {
+	n.AddStreams()
+	n.ConnectToNats()
+	n.VerifyStreams()
+	n.VerifyConsumers()
 }
+func (n *Nats) subscribe(subject Subject, cb nats.MsgHandler) {
+	l := log.WithFields(log.Fields{
+		"subject": subject,
+	})
+	js := n.Js
+	sub, err := js.QueueSubscribeSync(string(subject), string(subject),
+		nats.Bind(ExtractStreamName(subject), GetDurableName(subject)),
+		nats.ManualAck(),
+	)
+	// append to subscriptions
+	n.subscriptions = append(n.subscriptions, sub)
 
-func (c *Nats) Start(wg *sync.WaitGroup) {
-
-	c.StartServer()
-	for _, subscriber := range c.subscribers {
-		wg.Add(1)
-		go func(sub Subscriber) {
-			defer wg.Done()
-			Subscribe(sub.Subject, sub.Cb)
-		}(subscriber)
-
+	if err != nil {
+		l.Panic("Error subscribing to subject: ", subject, err)
 	}
 
+	l.Infof("Subscribed to subject: %s", subject)
+
+	for {
+		l = log.WithFields(log.Fields{
+			"subject": subject,
+		})
+
+		msg, err := sub.NextMsg(TIMEOUT)
+		if err != nil {
+			if err == nats.ErrTimeout {
+				l.Trace("Timeout waiting for message")
+				continue
+			}
+			// Because of MaxReconnectAttempts, probably nats: connection closed
+			// is panic-worthy. -> this goroutine will die and the process will exit.
+			// ErrBadSubscription -> because of the way we are unsubscribing, we get this error
+			if err == nats.ErrBadSubscription {
+				break
+			}
+			l.Panic("Error getting next message", err)
+		}
+
+		cb(msg)
+	}
+}
+func (n *Nats) Start(wg *sync.WaitGroup) {
+
+	n.StartServer()
+	for iteration, subscriber := range n.subscribers {
+		wg.Add(1)
+		go func(sub Subscriber, i int) {
+			defer wg.Done()
+			n.subscribe(sub.Subject, sub.Cb)
+			log.Infof("UnSubscribed to %s", sub.Subject)
+		}(subscriber, iteration)
+	}
+	go func() {
+		for {
+			select {
+			case <-n.done:
+				log.Info("Stopping nats server...", n.subscriptions)
+				//for _, sub := range n.subscriptions {
+				//	err := sub.Unsubscribe()
+				//	if err != nil {
+				//		log.Error("Error unsubscribing from nats server", err)
+				//		return
+				//	}
+				//}
+				n.Nc.Drain()
+				return
+			}
+		}
+	}()
+}
+func (n *Nats) Stop() {
+	//c.Nc.Close()
+	n.done <- struct{}{}
 }
 
-func (c *Nats) AddStreams() {
+func (n *Nats) AddStreams() {
 	expirationStream := Streams{}.CreateStream(Expiration, []Subject{ExpirationComplete})
 	ordersStream := Streams{}.CreateStream(Orders, []Subject{OrderCreated, OrderCancelled})
-	c.streams = []Streams{expirationStream, ordersStream}
+	n.streams = []Streams{expirationStream, ordersStream}
 }
 
 const MaxReconnectAttempts = 5
 
-func (c *Nats) ConnectToNats() {
+func (n *Nats) ConnectToNats() {
 	url := os.Getenv("NATS_URL")
 	if url == "" {
 		url = nats.DefaultURL
@@ -100,24 +163,24 @@ func (c *Nats) ConnectToNats() {
 		log.Panic("Error connecting to NATS.", err)
 	}
 
-	c.Nc = nc
-	c.Js, err = nc.JetStream()
+	n.Nc = nc
+	n.Js, err = nc.JetStream()
 
 	if err != nil {
 		log.Panic("Error creating JetStream context.", err)
 	}
 }
 
-func (c *Nats) VerifyStreams() {
-	for _, stream := range c.streams {
+func (n *Nats) VerifyStreams() {
+	for _, stream := range n.streams {
 		name := stream.name
 		l := log.WithFields(log.Fields{
 			"stream": name,
 		})
 
-		if !findStream(c.Js, name) {
+		if !findStream(n.Js, name) {
 			l.Warn("Not found. Creating...")
-			createStream(c.Js, name)
+			createStream(n.Js, name)
 			l.Info("Created.")
 
 			continue
@@ -127,8 +190,8 @@ func (c *Nats) VerifyStreams() {
 	}
 }
 
-func (c *Nats) VerifyConsumers() {
-	for _, stream := range c.streams {
+func (n *Nats) VerifyConsumers() {
+	for _, stream := range n.streams {
 		for _, subject := range stream.subjects {
 			props := CreateConsumerProps(subject)
 			l := log.WithFields(log.Fields{
@@ -139,9 +202,9 @@ func (c *Nats) VerifyConsumers() {
 				"filterSubject":  props.filterSubject,
 			})
 
-			if !FindConsumer(c.Js, stream.name, props.durableName) {
+			if !FindConsumer(n.Js, stream.name, props.durableName) {
 				l.Warn("Not found. Creating...")
-				CreateConsumer(c.Js, stream.name, props)
+				CreateConsumer(n.Js, stream.name, props)
 				l.Info("Created.")
 
 				continue

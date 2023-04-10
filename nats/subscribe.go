@@ -20,10 +20,10 @@ func Subscribe(subject Subject, cb nats.MsgHandler) {
 	)
 
 	if err != nil {
-		l.Panic("Error subscribing to subject", err)
+		l.Panic("Error subscribing to subject: ", subject, err)
 	}
 
-	l.Info("Subscribed")
+	l.Infof("Subscribed to subject: %s", subject)
 
 	for {
 		l = log.WithFields(log.Fields{
