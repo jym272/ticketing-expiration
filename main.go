@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -9,16 +8,10 @@ import (
 	cb "workspace/callbacks"
 	nt "workspace/nats"
 
-	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/sys/unix"
 
-	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 )
-
-type EchoServer struct {
-	server *echo.Echo
-}
 
 type Server struct {
 	wg    sync.WaitGroup
@@ -51,43 +44,39 @@ func NewServer() *Server {
 		Cb:      cb.OrderCreated,
 	}
 	subs = append(subs, *sub)
+	logger := log.New()
 	return &Server{
 		nats:  nt.GetNats(subs),
 		async: as.GetAsync(),
-		echo:  getEcho(),
+		echo:  newEcho(logger),
 	}
 }
 
 func (srv *Server) Run() error {
-	if err := srv.Start(); err != nil {
+	if err := srv.start(); err != nil {
 		return err
 	}
 	srv.waitForSignals()
-	//srv.Shutdown()
+	srv.shutdown()
 	return nil
 }
 
-func (e *EchoServer) Start(wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		httpPort := os.Getenv("PORT")
-		if httpPort == "" {
-			httpPort = "8080"
-		}
-		e.server.Logger.Fatal(e.server.Start(":" + httpPort))
-	}()
-
-}
-
-func (srv *Server) Start() error {
+func (srv *Server) start() error {
 
 	srv.async.Start(&srv.wg)
 	srv.nats.Start(&srv.wg)
-	srv.echo.Start(&srv.wg)
+	srv.echo.start(&srv.wg)
 	// EL SHUTDOWN usa signals
 
 	return nil
+}
+
+func (srv *Server) shutdown() {
+	//srv.nats.Stop()
+	//srv.async.Stop()
+	srv.echo.shutdown()
+	srv.wg.Wait()
+
 }
 
 func main() {
@@ -95,28 +84,6 @@ func main() {
 	srv := NewServer()
 	if err := srv.Run(); err != nil {
 		log.Fatalf("could not run server: %v", err)
-	}
-
-}
-
-func getEcho() *EchoServer {
-
-	e := echo.New()
-
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-
-	e.GET("/", func(c echo.Context) error {
-		return c.HTML(http.StatusOK, "Hello, Docker! <3")
-	})
-
-	e.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, struct {
-			Status string `json:"status"`
-		}{Status: "OK"})
-	})
-	return &EchoServer{
-		server: e,
 	}
 
 }
