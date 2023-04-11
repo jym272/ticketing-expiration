@@ -108,6 +108,7 @@ func (n *Nats) subscribe(subject Subject, cb nats.MsgHandler) {
 
 		cb(msg)
 	}
+	l.Info("Unsubscribed")
 }
 func (n *Nats) Start(wg *sync.WaitGroup) {
 	n.StartServer()
@@ -118,7 +119,6 @@ func (n *Nats) Start(wg *sync.WaitGroup) {
 		go func(sub Subscriber) {
 			defer wg.Done()
 			n.subscribe(sub.Subject, sub.Cb)
-			log.Infof("unsubscribed to %s", sub.Subject)
 		}(subscriber)
 	}
 
