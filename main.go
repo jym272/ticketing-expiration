@@ -31,16 +31,16 @@ func (srv *Server) waitForSignals() {
 }
 
 func NewServer() *Server {
-	var subs []nt.Subscriber
-
-	orderSub := &nt.Subscriber{
-		Subject: nt.OrderCreated,
-		Cb:      cb.OrderCreated,
+	subs := []nt.Subscriber{
+		{Subject: nt.OrderCreated, Cb: cb.OrderCreated},
 	}
-	subs = append(subs, *orderSub)
+	streams := []nt.Streams{
+		{Name: nt.Orders, Subjects: []nt.Subject{nt.OrderCreated, nt.OrderUpdated}},
+		{Name: nt.Expiration, Subjects: []nt.Subject{nt.ExpirationComplete}},
+	}
 
 	return &Server{
-		nats:  nt.GetNats(subs),
+		nats:  nt.GetNats(subs, streams),
 		async: as.GetAsync(),
 		echo:  getEcho(),
 	}

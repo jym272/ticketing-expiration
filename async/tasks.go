@@ -15,15 +15,6 @@ type Processor struct {
 	subject nats.Subject
 }
 
-func OrderCreated(order nats.OrdersCreated) (*asynq.Task, error) {
-	payload, err := json.Marshal(order)
-	if err != nil {
-		return nil, err
-	}
-
-	return asynq.NewTask(string(nats.OrderCreated), payload), nil
-}
-
 func CreateTask[T any](msg T, subject nats.Subject) (*asynq.Task, error) {
 	payload, err := json.Marshal(msg)
 	if err != nil {
@@ -52,7 +43,7 @@ func (processor *Processor) ProcessTask(_ context.Context, t *asynq.Task) error 
 		if err != nil {
 			return fmt.Errorf("publishing to subject=%s has failed", nats.ExpirationComplete)
 		}
-	case nats.OrderCancelled, nats.ExpirationComplete:
+	case nats.OrderUpdated, nats.ExpirationComplete:
 		return fmt.Errorf("the Subject has not yet been implemented: subject=%s: %w", processor.subject, asynq.SkipRetry)
 	}
 

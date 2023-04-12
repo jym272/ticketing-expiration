@@ -16,7 +16,36 @@ type Message struct {
 	OrdersCreated nt.OrdersCreated `json:"orders.created"`
 }
 
-const NackDelay = 2 * time.Second
+const NackDelay = 1000 * time.Millisecond
+const MaxRetries = 3
+
+func nakTheMsg(m *nats.Msg) error {
+	metadata, err := m.Metadata()
+	if err != nil {
+		log.Error("Error getting metadata")
+		return err
+	}
+	log.Infof("Number of deliveries: %d", metadata.NumDelivered)
+	if int(metadata.NumDelivered) >= MaxRetries {
+		log.Infof("Max retries reached %d, terminating message", MaxRetries)
+		err = m.Term()
+
+		if err != nil {
+			log.Error("Error term the message")
+			return err
+		}
+
+		return nil
+	}
+
+	err = m.NakWithDelay(NackDelay)
+	if err != nil {
+		log.Error("Error nacking the message")
+		return err
+	}
+
+	return nil
+}
 
 func OrderCreated(m *nats.Msg) {
 	var message Message
@@ -58,7 +87,7 @@ func OrderCreated(m *nats.Msg) {
 	task, err := async.CreateTask(order, nt.OrderCreated)
 	if err != nil {
 		l.Errorf("Error creating task: %v", err)
-		err = m.NakWithDelay(NackDelay)
+		err = nakTheMsg(m)
 
 		if err != nil {
 			l.Error("Error nacking the message")
@@ -71,7 +100,7 @@ func OrderCreated(m *nats.Msg) {
 	taskInfo, err := async.EnqueueTask(task, asynq.ProcessAt(expiresAt))
 	if err != nil {
 		l.Errorf("Error enqueuing task: %v", err)
-		err = m.NakWithDelay(NackDelay)
+		err = nakTheMsg(m)
 
 		if err != nil {
 			l.Error("Error nacking the message")
@@ -89,10 +118,10 @@ func OrderCreated(m *nats.Msg) {
 	err = m.Ack()
 	if err != nil {
 		l.Errorf("Error ack: %v", err)
-		err = m.NakWithDelay(NackDelay)
+		err = m.Term()
 
 		if err != nil {
-			l.Error("Error nacking the message")
+			l.Error("Error term the message")
 			return
 		}
 

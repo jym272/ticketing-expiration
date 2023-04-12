@@ -16,12 +16,13 @@ type Subject string
 type Stream string
 
 const TIMEOUT = 5 * time.Second
+const MaxReconnectAttempts = 5
 
 const (
 	Orders             Stream  = "orders"
 	Expiration         Stream  = "expiration"
 	OrderCreated       Subject = "orders.created"
-	OrderCancelled     Subject = "orders.cancelled"
+	OrderUpdated       Subject = "orders.updated"
 	ExpirationComplete Subject = "expiration.complete"
 )
 
@@ -44,8 +45,8 @@ type Nats struct {
 }
 
 type Streams struct {
-	name     Stream
-	subjects []Subject
+	Name     Stream
+	Subjects []Subject
 }
 
 var instance *Nats
@@ -59,16 +60,20 @@ func GetInstance() *Nats {
 	return instance
 }
 
-func GetNats(subs []Subscriber) *Nats {
+func GetNats(subs []Subscriber, unvalidatedStreams []Streams) *Nats {
+	for _, stream := range unvalidatedStreams {
+		validateStream(stream.Name, stream.Subjects)
+	}
+
 	n := GetInstance()
 	n.subscribers = subs
+	n.streams = unvalidatedStreams
 	n.done = make(chan struct{})
 
 	return n
 }
 
 func (n *Nats) StartServer() {
-	n.AddStreams()
 	n.ConnectToNats()
 	n.VerifyStreams()
 	n.VerifyConsumers()
@@ -144,14 +149,6 @@ func (n *Nats) Shutdown() {
 	n.done <- struct{}{}
 }
 
-func (n *Nats) AddStreams() {
-	expirationStream := Streams{}.CreateStream(Expiration, []Subject{ExpirationComplete})
-	ordersStream := Streams{}.CreateStream(Orders, []Subject{OrderCreated, OrderCancelled})
-	n.streams = []Streams{expirationStream, ordersStream}
-}
-
-const MaxReconnectAttempts = 5
-
 func (n *Nats) ConnectToNats() {
 	url := os.Getenv("NATS_URL")
 	if url == "" {
@@ -173,7 +170,7 @@ func (n *Nats) ConnectToNats() {
 
 func (n *Nats) VerifyStreams() {
 	for _, stream := range n.streams {
-		name := stream.name
+		name := stream.Name
 		l := log.WithFields(log.Fields{
 			"stream": name,
 		})
@@ -192,19 +189,19 @@ func (n *Nats) VerifyStreams() {
 
 func (n *Nats) VerifyConsumers() {
 	for _, stream := range n.streams {
-		for _, subject := range stream.subjects {
+		for _, subject := range stream.Subjects {
 			props := CreateConsumerProps(subject)
 			l := log.WithFields(log.Fields{
 				"consumer":       props.durableName,
-				"stream":         stream.name,
+				"stream":         stream.Name,
 				"durableName":    props.durableName,
 				"queueGroupName": props.queueGroupName,
 				"filterSubject":  props.filterSubject,
 			})
 
-			if !FindConsumer(n.Js, stream.name, props.durableName) {
+			if !FindConsumer(n.Js, stream.Name, props.durableName) {
 				l.Warn("Not found. Creating...")
-				CreateConsumer(n.Js, stream.name, props)
+				CreateConsumer(n.Js, stream.Name, props)
 				l.Info("Created.")
 
 				continue
@@ -213,14 +210,6 @@ func (n *Nats) VerifyConsumers() {
 			l.Debug("Found.")
 		}
 	}
-}
-
-func (s Streams) CreateStream(stream Stream, subjects []Subject) Streams {
-	validateStream(stream, subjects)
-	s.name = stream
-	s.subjects = subjects
-
-	return s
 }
 
 func createStream(js nats.JetStreamContext, stream Stream) {
@@ -249,14 +238,14 @@ func findStream(js nats.JetStreamContext, stream Stream) bool {
 func validateStream(stream Stream, subjects []Subject) {
 	l := log.WithFields(log.Fields{
 		"stream":   stream,
-		"subjects": subjects,
+		"Subjects": subjects,
 	})
 	if stream == "" {
-		l.Panic("stream name cannot be empty")
+		l.Panic("stream Name cannot be empty")
 	}
 
 	if len(subjects) == 0 {
-		l.Panic("subjects cannot be empty in stream")
+		l.Panic("Subjects cannot be empty in stream")
 	}
 
 	for _, subject := range subjects {
