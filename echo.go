@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"workspace/nats"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -56,6 +57,18 @@ func getEcho() *EchoServer {
 		return c.HTML(http.StatusOK, "Hello, Docker! <3")
 	})
 
+	e.GET("/api/healthz", func(c echo.Context) error {
+		n := nats.GetInstance()
+		if n.Nc == nil || n.Nc.IsClosed() {
+			return c.JSON(http.StatusBadRequest, struct {
+				Status string `json:"status"`
+			}{Status: "error"})
+		}
+
+		return c.JSON(http.StatusOK, struct {
+			Status string `json:"status"`
+		}{Status: "OK"})
+	})
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, struct {
 			Status string `json:"status"`
