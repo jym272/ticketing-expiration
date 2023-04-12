@@ -25,9 +25,12 @@ func nakTheMsg(m *nats.Msg) error {
 		log.Error("Error getting metadata")
 		return err
 	}
+
 	log.Infof("Number of deliveries: %d", metadata.NumDelivered)
+
 	if int(metadata.NumDelivered) >= MaxRetries {
 		log.Infof("Max retries reached %d, terminating message", MaxRetries)
+
 		err = m.Term()
 
 		if err != nil {
