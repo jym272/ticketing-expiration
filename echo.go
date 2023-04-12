@@ -25,7 +25,7 @@ func (e *EchoServer) start(wg *sync.WaitGroup) {
 
 		httpPort := os.Getenv("PORT")
 		if httpPort == "" {
-			httpPort = "8080"
+			log.Panic("PORT env var is not set")
 		}
 
 		if err := e.server.Start(":" + httpPort); err != nil && err != http.ErrServerClosed {

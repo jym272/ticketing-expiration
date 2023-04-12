@@ -1,6 +1,7 @@
 package async
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -15,7 +16,6 @@ type Priority int
 
 const (
 	concurrentWorkers   = 10
-	redisAddr           = "127.0.0.1:7157"
 	criticalPriority    = Priority(6)
 	defaultPriority     = Priority(3)
 	lowPriority         = Priority(1)
@@ -46,10 +46,14 @@ func (a *Async) Start(wg *sync.WaitGroup) {
 }
 
 func GetAsync() (srv *Async) {
-	url := os.Getenv("REDIS_URL")
-	if url == "" {
-		url = redisAddr
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+
+	if redisHost == "" || redisPort == "" {
+		log.Panic("REDIS_HOST or REDIS_PORT is not set")
 	}
+
+	url := fmt.Sprintf("%s:%s", redisHost, redisPort)
 
 	server := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: url},

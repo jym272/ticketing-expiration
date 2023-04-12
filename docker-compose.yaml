@@ -1,16 +1,21 @@
 services:
-#  app:
-#    build: .
-#    ports:
-#      - 8081:8080
-#    environment:
-#      - NATS_URL=nats://nats:4222
-#      - REDIS_URL=redis:6379
-#    depends_on:
-#      redis:
-#        condition: service_healthy
-#      nats:
-#        condition: service_healthy
+  app:
+    build: .
+    ports:
+      - 8081:8080
+    environment:
+      - PORT=8080
+      - NATS_SERVER_HOST=nats
+      - NATS_SERVER_PORT=4222
+      - NACK_DELAY_MS=1000
+      - NACK_MAX_RETRIES=3
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
 
   redis:
     image: redis:alpine
@@ -43,8 +48,6 @@ services:
         condition: service_healthy
       nats:
         condition: service_healthy
-#      nats-box:
-#        condition: service_healthy
 volumes:
   redis-data:
 

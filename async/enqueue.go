@@ -1,6 +1,7 @@
 package async
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -12,10 +13,14 @@ const maxRetry = 10
 const timeout = 10 * time.Second
 
 func EnqueueTask(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
-	url := os.Getenv("REDIS_URL")
-	if url == "" {
-		url = redisAddr
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+
+	if redisHost == "" || redisPort == "" {
+		log.Panic("REDIS_HOST or REDIS_PORT is not set")
 	}
+
+	url := fmt.Sprintf("%s:%s", redisHost, redisPort)
 
 	l := log.WithFields(log.Fields{
 		"redis_url": url,

@@ -150,10 +150,14 @@ func (n *Nats) Shutdown() {
 }
 
 func (n *Nats) ConnectToNats() {
-	url := os.Getenv("NATS_URL")
-	if url == "" {
-		url = nats.DefaultURL
+	natsServerHost := os.Getenv("NATS_SERVER_HOST")
+	natsServerPort := os.Getenv("NATS_SERVER_PORT")
+
+	if natsServerHost == "" || natsServerPort == "" {
+		log.Panic("NATS_SERVER_HOST or NATS_SERVER_PORT is not set")
 	}
+
+	url := fmt.Sprintf("nats://%s:%s", natsServerHost, natsServerPort)
 
 	nc, err := nats.Connect(url, nats.MaxReconnects(MaxReconnectAttempts))
 	if err != nil {

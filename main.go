@@ -20,17 +20,7 @@ type Server struct {
 	wg    sync.WaitGroup
 }
 
-func (srv *Server) waitForSignals() {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, unix.SIGTERM, unix.SIGINT, unix.SIGTSTP)
-
-	for {
-		<-sigs
-		break
-	}
-}
-
-func NewServer() *Server {
+func newServer() *Server {
 	subs := []nt.Subscriber{
 		{Subject: nt.OrderCreated, Cb: cb.OrderCreated},
 	}
@@ -46,7 +36,7 @@ func NewServer() *Server {
 	}
 }
 
-func (srv *Server) Run() {
+func (srv *Server) run() {
 	srv.start()
 	srv.waitForSignals()
 	srv.shutdown()
@@ -58,6 +48,16 @@ func (srv *Server) start() {
 	srv.echo.start(&srv.wg)
 }
 
+func (srv *Server) waitForSignals() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, unix.SIGTERM, unix.SIGINT, unix.SIGTSTP)
+
+	for {
+		<-sigs
+		break
+	}
+}
+
 func (srv *Server) shutdown() {
 	srv.nats.Shutdown()
 	// async also listens the same signals and stops itself
@@ -67,6 +67,6 @@ func (srv *Server) shutdown() {
 }
 
 func main() {
-	srv := NewServer()
-	srv.Run()
+	srv := newServer()
+	srv.run()
 }

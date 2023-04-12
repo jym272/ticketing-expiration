@@ -2,6 +2,8 @@ package callbacks
 
 import (
 	"encoding/json"
+	"os"
+	"strconv"
 	"time"
 	"workspace/async"
 	nt "workspace/nats"
@@ -16,10 +18,26 @@ type Message struct {
 	OrdersCreated nt.OrdersCreated `json:"orders.created"`
 }
 
-const NackDelay = 1000 * time.Millisecond
-const MaxRetries = 3
-
 func nakTheMsg(m *nats.Msg) error {
+	nd := os.Getenv("NACK_DELAY_MS")
+	mr := os.Getenv("NACK_MAX_RETRIES")
+
+	if nd == "" || mr == "" {
+		log.Panic("NACK_DELAY_MS or NACK_MAX_RETRIES is not set")
+	}
+
+	nackDelayInt, err := strconv.Atoi(nd)
+	if err != nil {
+		log.Panic("NACK_DELAY_MS is not a number")
+	}
+
+	maxRetries, err := strconv.Atoi(mr)
+	if err != nil {
+		log.Panic("NACK_MAX_RETRIES is not a number")
+	}
+
+	nackDelay := time.Duration(nackDelayInt) * time.Millisecond
+
 	metadata, err := m.Metadata()
 	if err != nil {
 		log.Error("Error getting metadata")
@@ -28,8 +46,8 @@ func nakTheMsg(m *nats.Msg) error {
 
 	log.Infof("Number of deliveries: %d", metadata.NumDelivered)
 
-	if int(metadata.NumDelivered) >= MaxRetries {
-		log.Infof("Max retries reached %d, terminating message", MaxRetries)
+	if int(metadata.NumDelivered) >= maxRetries {
+		log.Infof("Max retries reached %d, terminating message", maxRetries)
 
 		err = m.Term()
 
@@ -41,7 +59,7 @@ func nakTheMsg(m *nats.Msg) error {
 		return nil
 	}
 
-	err = m.NakWithDelay(NackDelay)
+	err = m.NakWithDelay(nackDelay)
 	if err != nil {
 		log.Error("Error nacking the message")
 		return err
