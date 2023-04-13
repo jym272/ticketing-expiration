@@ -49,13 +49,11 @@ func (e *EchoServer) shutdown() {
 
 func getEcho() *EchoServer {
 	e := echo.New()
+	if os.Getenv("ECHO_LOGGER") == "true" {
+		e.Use(middleware.Logger())
+	}
 
-	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-
-	e.GET("/", func(c echo.Context) error {
-		return c.HTML(http.StatusOK, "Hello, Docker! <3")
-	})
 
 	e.GET("/api/healthz", func(c echo.Context) error {
 		n := nats.GetInstance()
@@ -69,6 +67,7 @@ func getEcho() *EchoServer {
 			Status string `json:"status"`
 		}{Status: "OK"})
 	})
+
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, struct {
 			Status string `json:"status"`

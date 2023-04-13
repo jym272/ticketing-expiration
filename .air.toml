@@ -1,0 +1,43 @@
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+  args_bin = []
+  cmd = "go build -buildvcs=false -o ./tmp/main ."
+  bin = "./tmp/main"
+#  full_bin = "PORT=8080 NATS_SERVER_HOST=localhost NATS_SERVER_PORT=4222 NACK_DELAY_MS=1000 NACK_MAX_RETRIES=3 REDIS_HOST=localhost REDIS_PORT=7157 ./tmp/main"
+  full_bin = ""
+  delay = 0
+  exclude_dir = ["assets", "tmp", "vendor", "testdata"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  include_dir = []
+  include_ext = ["go", "tpl", "tmpl", "html"]
+  include_file = []
+  kill_delay = "0s"
+  log = "build-errors.log"
+  rerun = false
+  rerun_delay = 0
+  send_interrupt = false
+  stop_on_error = false
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  time = false
+
+[misc]
+  clean_on_exit = false
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true
