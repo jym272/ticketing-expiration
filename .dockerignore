@@ -1,1 +1,5 @@
 .git
+tmp
+Dockerfile
+dev.Dockerfile
+.idea
