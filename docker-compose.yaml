@@ -1,25 +1,8 @@
 services:
-#  app:
-#    build: .
-#    ports:
-#      - 8081:8080
-#    environment:
-#      - PORT=8080
-#      - NATS_SERVER_HOST=nats
-#      - NATS_SERVER_PORT=4222
-#      - NACK_DELAY_MS=1000
-#      - NACK_MAX_RETRIES=3
-#      - REDIS_HOST=redis
-#      - REDIS_PORT=6379
-#    depends_on:
-#      redis:
-#        condition: service_healthy
-#      nats:
-#        condition: service_healthy
   air:
-    image: cosmtrek/air
-    # working_dir value has to be the same of mapped volume
-    working_dir: /app
+    build:
+      context: .
+      dockerfile: dev.Dockerfile
     ports:
       - 8081:8080
     environment:
@@ -49,7 +32,9 @@ services:
       - 7157:6379
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes
+    # AOF activated, RDB activated, every 15 min if at least 1 key changed,
+    # every 5 min if at least 10 keys changed, every 1 min if at least 10000 keys changed
+    command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10000
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 1s
@@ -58,23 +43,18 @@ services:
 
   nats:
     image: nats:2.9.15-alpine
-    command: -js -DV -m 8222 -p 4222
+    command: -js -DV -m 8222 -p 4222 --store_dir=/data
     ports:
       - 4222:4222
+    volumes:
+      - nats-data:/data
     healthcheck:
       test: [ "CMD-SHELL", "printf 'GET /healthz?js-enabled-only=true HTTP/1.1\r\nHost: localhost:8222\r\n\r\n' | nc -w 1 localhost 8222 | tail -n 1 | grep -wq '{\"status\":\"ok\"}'" ]
       interval: 1s
       timeout: 5s
       retries: 5
 
-  waiting-for-the-services-to-be-ready:
-    image: hello-world
-    depends_on:
-      redis:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-
 volumes:
   redis-data:
+  nats-data:
 
