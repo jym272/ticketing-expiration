@@ -18,6 +18,9 @@ type Stream string
 const TIMEOUT = 5 * time.Second
 const MaxReconnectAttempts = 5
 
+// AckWait How long to allow messages to remain un-acknowledged before attempting redelivery
+const AckWait = 10 * time.Second
+
 const (
 	Orders             Stream  = "orders"
 	Expiration         Stream  = "expiration"
@@ -321,6 +324,7 @@ func CreateConsumer(js nats.JetStreamContext, stream Stream, props *ConsumerProp
 		DeliverSubject: nats.NewInbox(),
 		DeliverGroup:   props.queueGroupName,
 		FilterSubject:  props.filterSubject,
+		AckWait:        AckWait,
 	})
 	if err != nil {
 		fmt.Println("Error creating consumer.", err)
