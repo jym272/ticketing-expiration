@@ -30,7 +30,7 @@ func newServer() *Server {
 	}
 
 	return &Server{
-		nats:  nt.GetNats(subs, streams),
+		nats:  nt.GetNats(subs, streams, "expiration-service"),
 		async: as.GetAsync(),
 		echo:  getEcho(),
 	}

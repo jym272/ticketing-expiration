@@ -39,12 +39,13 @@ type Subscriber struct {
 	Subject Subject
 }
 type Nats struct {
-	Nc            *nats.Conn
-	Js            nats.JetStreamContext
-	streams       []Streams
-	subscribers   []Subscriber
-	done          chan struct{}
-	subscriptions []*nats.Subscription
+	Nc             *nats.Conn
+	Js             nats.JetStreamContext
+	streams        []Streams
+	subscribers    []Subscriber
+	done           chan struct{}
+	queueGroupName string
+	subscriptions  []*nats.Subscription
 }
 
 type Streams struct {
@@ -63,7 +64,7 @@ func GetInstance() *Nats {
 	return instance
 }
 
-func GetNats(subs []Subscriber, unvalidatedStreams []Streams) *Nats {
+func GetNats(subs []Subscriber, unvalidatedStreams []Streams, queueGroupName string) *Nats {
 	for _, stream := range unvalidatedStreams {
 		validateStream(stream.Name, stream.Subjects)
 	}
@@ -72,6 +73,7 @@ func GetNats(subs []Subscriber, unvalidatedStreams []Streams) *Nats {
 	n.subscribers = subs
 	n.streams = unvalidatedStreams
 	n.done = make(chan struct{})
+	n.queueGroupName = queueGroupName
 
 	return n
 }
@@ -84,10 +86,11 @@ func (n *Nats) StartServer() {
 func (n *Nats) subscribe(subject Subject, cb nats.MsgHandler) {
 	l := log.WithFields(log.Fields{
 		"subject": subject,
+		"queue":   n.queueGroupName,
 	})
 	js := n.Js
-	sub, err := js.QueueSubscribeSync(string(subject), string(subject),
-		nats.Bind(ExtractStreamName(subject), GetDurableName(subject)),
+	sub, err := js.QueueSubscribeSync(string(subject), n.queueGroupName,
+		nats.Bind(ExtractStreamName(subject), GetDurableName(subject, n.queueGroupName)),
 		nats.ManualAck(),
 	)
 
@@ -197,7 +200,7 @@ func (n *Nats) VerifyStreams() {
 func (n *Nats) VerifyConsumers() {
 	for _, stream := range n.streams {
 		for _, subject := range stream.Subjects {
-			props := CreateConsumerProps(subject)
+			props := CreateConsumerProps(subject, n.queueGroupName)
 			l := log.WithFields(log.Fields{
 				"consumer":       props.durableName,
 				"stream":         stream.Name,
@@ -277,17 +280,19 @@ func ExtractStreamName(subject Subject) string {
 	return stream
 }
 
-func GetDurableName(subject Subject) string {
+func GetDurableName(subject Subject, queueGroupName string) string {
 	parts := strings.Split(string(subject), ".")
 	if len(parts) == 0 {
 		panic("Subject is empty")
 	}
 
-	upperCaseParts := make([]string, 0, len(parts))
+	upperCaseParts := make([]string, 0, len(parts)+1)
 
 	for _, part := range parts {
 		upperCaseParts = append(upperCaseParts, strings.ToUpper(part))
 	}
+
+	upperCaseParts = append(upperCaseParts, strings.ToUpper(queueGroupName))
 
 	return strings.Join(upperCaseParts, "_")
 }
@@ -298,10 +303,10 @@ type ConsumerProps struct {
 	filterSubject  string
 }
 
-func CreateConsumerProps(subject Subject) *ConsumerProps {
+func CreateConsumerProps(subject Subject, queueGroupName string) *ConsumerProps {
 	return &ConsumerProps{
-		durableName:    GetDurableName(subject),
-		queueGroupName: string(subject),
+		durableName:    GetDurableName(subject, queueGroupName),
+		queueGroupName: queueGroupName,
 		filterSubject:  string(subject),
 	}
 }
