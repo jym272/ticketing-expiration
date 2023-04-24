@@ -53,9 +53,7 @@ func getEcho() *EchoServer {
 	if os.Getenv("ECHO_LOGGER") == "true" {
 		e.Use(middleware.Logger())
 	}
-
 	e.Use(middleware.Recover())
-
 	e.GET("/api/healthz", func(c echo.Context) error {
 		n := nats.GetInstance()
 		if n.Nc == nil || n.Nc.IsClosed() {
@@ -63,12 +61,10 @@ func getEcho() *EchoServer {
 				Status string `json:"status"`
 			}{Status: "error"})
 		}
-
 		return c.JSON(http.StatusOK, struct {
 			Status string `json:"status"`
 		}{Status: "OK"})
 	})
-
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, struct {
 			Status string `json:"status"`
