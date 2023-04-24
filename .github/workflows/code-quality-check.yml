@@ -8,6 +8,7 @@ on:
 env:
   # Log color in the test output
   FORCE_COLOR: 1
+  GOLANG_VERSION: '1.20.3'
 jobs:
   lint:
     timeout-minutes: 2
@@ -16,6 +17,11 @@ jobs:
       -
         name: Checkout code
         uses: actions/checkout@v3
+      -
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.20.3'
+          cache: true
       -
         uses: actions/setup-node@v3
         with:
