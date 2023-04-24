@@ -54,9 +54,7 @@ func getEcho() *EchoServer {
 	if os.Getenv("ECHO_LOGGER") == "true" {
 		e.Use(middleware.Logger())
 	}
-
 	e.Use(middleware.Recover())
-
 	e.GET("/api/healthz", func(c echo.Context) error {
 		n := nats.GetInstance()
 		if n.Nc == nil || n.Nc.IsClosed() {
