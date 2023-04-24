@@ -48,6 +48,7 @@ func (e *EchoServer) shutdown() {
 }
 
 // silly comment
+// another one
 func getEcho() *EchoServer {
 	e := echo.New()
 	if os.Getenv("ECHO_LOGGER") == "true" {
