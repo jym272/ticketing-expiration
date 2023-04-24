@@ -1,5 +1,5 @@
-FROM golangci/golangci-lint as base
-#FROM golang:alpine as base
+#FROM golangci/golangci-lint as base
+FROM golang:alpine as base
 
 
 FROM base as builder
@@ -15,8 +15,8 @@ RUN go mod download
 # https://docs.docker.com/engine/reference/builder/#copy
 COPY . ./
 
-# lint
-RUN golangci-lint run
+# lint, pretty slow
+RUN #golangci-lint run
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /docker-gs-ping
