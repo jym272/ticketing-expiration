@@ -67,11 +67,13 @@ func getEcho() *EchoServer {
 			Status string `json:"status"`
 		}{Status: "OK"})
 	})
+
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, struct {
 			Status string `json:"status"`
 		}{Status: "OK"})
 	})
+
 	return &EchoServer{
 		server: e,
 		done:   make(chan struct{}),
