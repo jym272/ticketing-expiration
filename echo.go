@@ -47,6 +47,7 @@ func (e *EchoServer) shutdown() {
 	e.done <- struct{}{}
 }
 
+// silly comment
 func getEcho() *EchoServer {
 	e := echo.New()
 	if os.Getenv("ECHO_LOGGER") == "true" {
