@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -eou pipefail
+
+dir=$(dirname "$0")
+source "$dir"/random_functions
+
+port=$(get_random_port_not_used)
+nats_server_port=$(get_random_port_not_used)
+redis_port=$(get_random_port_not_used)
+
+#app
+export PORT=$port
+
+#docker
+export COMPOSE_PROJECT_NAME=expiration-api-test
+
+#nats
+export NACK_DELAY_MS=1000
+export NACK_MAX_RETRIES=3
+export NATS_SERVER_HOST=localhost
+export NATS_SERVER_PORT=$nats_server_port
+
+#redis
+export REDIS_HOST=localhost
+export REDIS_PORT=$redis_port
