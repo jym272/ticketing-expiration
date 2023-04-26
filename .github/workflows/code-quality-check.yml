@@ -8,8 +8,7 @@ permissions:
   # Optional: allow read access to pull request. Use with `only-new-issues` option.
   # pull-requests: read
 jobs:
-  golangci:
-    name: lint
+  lint:
     timeout-minutes: 2
     runs-on: ubuntu-latest
     steps:
@@ -46,7 +45,6 @@ jobs:
           # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
           # skip-build-cache: true
   test:
-    name: test
     timeout-minutes: 2
     runs-on: ubuntu-latest
     steps:
