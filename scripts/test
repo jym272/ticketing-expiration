@@ -2,8 +2,8 @@
 
 set -eou pipefail
 
-go run workspace > /dev/null 2>&1 &
-
+#go run workspace > /dev/null 2>&1 &
+go run workspace &
 go_pid=$!
 
 # Group id of the process
