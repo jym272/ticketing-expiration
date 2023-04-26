@@ -11,6 +11,7 @@ redis_port=$(get_random_port_not_used)
 
 #app
 export PORT=$port
+export ECHO_LOGGER=true
 
 #docker
 export COMPOSE_PROJECT_NAME=expiration-api-test
