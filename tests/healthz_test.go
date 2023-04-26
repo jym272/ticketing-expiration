@@ -51,7 +51,7 @@ func (s *HealthSuite) TestHealthz() {
 
 	s.Equal(http.StatusOK, resp.StatusCode)
 	s.Equal("application/json; charset=UTF-8", resp.Header.Get("Content-Type"))
-	s.Equal(`{"status":"OK"}`, bodyString)
+	s.Equal(`{"status":"OsK"}`, bodyString)
 }
 
 func (s *HealthSuite) TestHealth() {
