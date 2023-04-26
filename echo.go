@@ -17,6 +17,7 @@ type EchoServer struct {
 	done   chan struct{}
 }
 
+// comment another one
 func (e *EchoServer) start(wg *sync.WaitGroup) {
 	wg.Add(1)
 
