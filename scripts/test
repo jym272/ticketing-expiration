@@ -28,7 +28,8 @@ echo "Stopping server with id $go_pid"
 pkill -TERM -P $go_pid
 
 # Only if the output of go run workspace is not redirected to /dev/null
-#sleep 1
+# is for the app to give time to the server to complete the stop logging
+sleep 1
 
 if [[ $go_test_exit_code -eq 0 ]]; then
   echo -e "\e[1;32mTests passed\e[0m"
