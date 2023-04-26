@@ -11,6 +11,6 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
-  golangci-lint:
-    uses: ./.github/workflows/golangci-lint.yml
+  code_quality_check:
+    uses: ./.github/workflows/code-quality-check.yml
     secrets: inherit
