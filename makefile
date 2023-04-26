@@ -15,4 +15,5 @@ test: ensure-gotest
 ensure-gotest:
 	$(ensure-gotest)
 clean:
+	@bash scripts/down-test-container
 	rm -f ./gotest

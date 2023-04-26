@@ -1,0 +1,58 @@
+# Like docker-compose.yml in root but with the build app, and without ports
+services:
+  redis:
+    image: redis:alpine
+    # AOF activated, RDB activated, every 15 min if at least 1 key changed,
+    # every 5 min if at least 10 keys changed, every 1 min if at least 10000 keys changed
+    command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10000
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2.9.15-alpine
+    command: -js -DV -m 8222 -p 4222 --store_dir=/data
+    healthcheck:
+      test: [ "CMD-SHELL", "printf 'GET /healthz?js-enabled-only=true HTTP/1.1\r\nHost: localhost:8222\r\n\r\n' | nc -w 1 localhost 8222 | tail -n 1 | grep -wq '{\"status\":\"ok\"}'" ]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    environment:
+      - PORT=8080
+      - NATS_SERVER_HOST=nats
+      - NATS_SERVER_PORT=4222
+      - NACK_DELAY_MS=1000
+      - NACK_MAX_RETRIES=3
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  wait-for-app-to-be-ready:
+    image: curlimages/curl
+    command: ["sleep", "10"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://app:8080/api/healthz"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+  wait-for-services-to-be-ready:
+    image: hello-world
+    depends_on:
+      wait-for-app-to-be-ready:
+        condition: service_healthy

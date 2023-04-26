@@ -3,56 +3,77 @@ package tests
 import (
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestHealthz(t *testing.T) {
-	port := "8081"
-	endpoint := "/api/healthz"
-	url := "http://localhost:" + port + endpoint
-	req, _ := http.NewRequest(http.MethodGet, url, http.NoBody)
-
-	client := &http.Client{}
-	resp, _ := client.Do(req) //nolint:bodyclose // we close it in defer
-
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			t.Errorf("got error on closing body %s", err)
-		}
-	}(resp.Body)
-
-	body, _ := io.ReadAll(resp.Body)
-	bodyString := strings.TrimSpace(string(body))
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, "application/json; charset=UTF-8", resp.Header.Get("Content-Type"))
-	assert.Equal(t, `{"status":"OK"}`, bodyString)
+type HealthSuite struct {
+	suite.Suite
+	client *http.Client
+	port   string
 }
 
-func TestHealth(t *testing.T) {
-	port := "8081"
-	endpoint := "/health"
-	url := "http://localhost:" + port + endpoint
-	req, _ := http.NewRequest(http.MethodGet, url, http.NoBody)
+func (s *HealthSuite) getURL(endpoint string) string {
+	return "http://localhost:" + s.port + endpoint
+}
 
-	client := &http.Client{}
-	resp, _ := client.Do(req) //nolint:bodyclose // we close it in defer
+func (s *HealthSuite) SetupSuite() {
+	// start the server
+	s.port = os.Getenv("PORT")
+	if s.port == "" {
+		s.Fail("got empty port from env")
+	}
 
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			t.Errorf("got error on closing body %s", err)
-		}
-	}(resp.Body)
+	s.client = &http.Client{}
+}
 
-	body, _ := io.ReadAll(resp.Body)
+func (s *HealthSuite) TearDownSuite() {
+	// stop the server
+}
+
+func (s *HealthSuite) TestHealthz() {
+	url := s.getURL("/api/healthz")
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
+	s.Require().NoError(err)
+
+	resp, err := s.client.Do(req)
+	s.Require().NoError(err)
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	s.Require().NoError(err)
+
 	bodyString := strings.TrimSpace(string(body))
 
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, "application/json; charset=UTF-8", resp.Header.Get("Content-Type"))
-	assert.Equal(t, `{"status":"OK"}`, bodyString)
+	s.Equal(http.StatusOK, resp.StatusCode)
+	s.Equal("application/json; charset=UTF-8", resp.Header.Get("Content-Type"))
+	s.Equal(`{"status":"OK"}`, bodyString)
+}
+
+func (s *HealthSuite) TestHealth() {
+	url := s.getURL("/health")
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
+	s.Require().NoError(err)
+
+	resp, err := s.client.Do(req)
+	s.Require().NoError(err)
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	s.Require().NoError(err)
+
+	bodyString := strings.TrimSpace(string(body))
+
+	s.Equal(http.StatusOK, resp.StatusCode)
+	s.Equal("application/json; charset=UTF-8", resp.Header.Get("Content-Type"))
+	s.Equal(`{"status":"OK"}`, bodyString)
+}
+
+func TestHealthSuite(t *testing.T) {
+	suite.Run(t, new(HealthSuite))
 }
