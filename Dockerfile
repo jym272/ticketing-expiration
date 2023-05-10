@@ -1,5 +1,5 @@
 #FROM golangci/golangci-lint as base
-FROM golang:alpine as base
+FROM golang:1.20.4-alpine3.17 as base
 
 
 FROM base as builder

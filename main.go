@@ -60,7 +60,7 @@ func (srv *Server) waitForSignals() {
 
 func (srv *Server) shutdown() {
 	srv.nats.Shutdown()
-	// async also listens the same signals and stops itself
+	// async also listens the same signals and stops by itself
 	srv.echo.shutdown()
 	srv.wg.Wait()
 	log.Info("Server stopped")

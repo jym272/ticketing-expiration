@@ -1,4 +1,4 @@
-FROM cosmtrek/air as base
+FROM cosmtrek/air:v1.43.0 as base
 
 FROM base as builder
 
