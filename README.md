@@ -1,7 +1,3 @@
-#### Some options for: go redis golang background-jobs asynchronous-tasks task-queue worker-pool
-    
-- https://github.com/gocraft/work
+## Expiration Api
 
-
-
-air -> describir qu emiera dhace
+#### Part of [Microservices on Kubernetes](https://github.com/jym272/ticketing) Project
